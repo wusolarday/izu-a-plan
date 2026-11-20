@@ -10,7 +10,7 @@ const $ = sel => document.querySelector(sel);
 const app = $('#app');
 
 // ---------- 格式 ----------
-const fmt = n => Math.round(n).toLocaleString('zh-TW');
+const fmt = n => (Math.round(n) || 0).toLocaleString('zh-TW');
 const sgn = n => (Math.round(n) > 0 ? '+' : '') + fmt(n);
 const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
 const today = () => new Date().toLocaleDateString('sv-SE', { timeZone: 'Asia/Taipei' });
@@ -75,7 +75,7 @@ function home() {
   if (p) {
     const over = p.E - p.budget;
     g.push(`<div class="card"><h3>本期生活費</h3><div class="big">${fmt(p.E)}</div>
-      <div>${over <= 0 ? `<span class="good">在預算內${over < 0 ? `，剩 ${fmt(-over)}` : ''}</span>` : over <= tol() ? `<span class="warn">略超 ${fmt(over)}（容許範圍內）</span>` : `<span class="bad">超支 ${fmt(over)}</span>`}</div>
+      <div>${verdict(over)}</div>
       <div class="muted">預算 ${fmt(p.budget)}${p.periods > 1 ? `（跨 ${p.periods} 期）` : ''}・${md(p.from)}→${md(p.to)}・現金流出，含上期刷卡</div></div>`);
     const sd = p.actSide - p.planSide;
     g.push(`<div class="card"><h3>兼職收入</h3><div class="big">${fmt(p.actSide)}</div>
@@ -131,7 +131,7 @@ const setPath = (o, path, v) => { const k = path.split('.'); const last = k.pop(
 const getPath = (o, path) => path.split('.').reduce((a, x) => a?.[x], o);
 const field = (k, attrs = '') => `data-k="${k}" value="${esc(getPath(D, k) ?? '')}" ${attrs}`;
 const radio = (k, v, label) => `<label><input type="radio" name="${k}" data-k="${k}" value="${v}" ${getPath(D, k) === v ? 'checked' : ''}> ${label}</label>`;
-const FLOW = { income: ['一次性收入（中獎、獎金等）', 1], gift: ['家人資助', 1], stockSell: ['賣股入帳', 1], loanIn: ['借款入帳', 1], stockBuy: ['買股', -1], prepay: ['提前還款', -1], otherOut: ['其他非生活支出（押金等）', -1] };
+const FLOW = { income: ['一次性收入（中獎、獎金等）', 1], gift: ['家人資助', 1], stockSell: ['賣股入帳', 1], loanIn: ['借款入帳', 1], stockBuy: ['買股', -1], prepay: ['提前還款', -1], otherOut: ['其他非生活支出（押金等）', -1], otherIn: ['其他入帳（退款、押金返還等）', 1] };
 
 function settle() {
   D ??= S.draft || newDraft();
@@ -204,16 +204,34 @@ function calc() {
   settle();
 }
 
+const verdict = over => Math.round(over) === 0 ? '<span class="good">剛好等於預算</span>' : over < 0
+  ? `<span class="good">比預算少花 ${fmt(-over)}</span>`
+  : over <= tol() ? `<span class="warn">比預算多花 ${fmt(over)}（容許範圍內）</span>` : `<span class="bad">比預算多花 ${fmt(over)}</span>`;
+
 function showPreview() {
-  const { p, check, early } = preview, over = p.E - p.budget;
-  $('#preview').innerHTML = `<div class="card"><h3>試算結果</h3>${early ? `<div class="note bad">距上次結算只有 ${Math.round((Date.parse(p.to) - Date.parse(p.from)) / 864e5)} 天，不是完整週期（預定 ${ymd(E.nextDue(S))}），生活費無法判斷。若只是想看看，請按「清除草稿」。</div>` : ''}${rows([
-    ['本期生活費（現金流出）', fmt(p.E)], ['預算', fmt(p.budget)],
-    [over > 0 ? '超支' : '剩餘', `<span class="${over > tol() ? 'bad' : over > 0 ? 'warn' : 'good'}">${fmt(Math.abs(over))}</span>`],
-    ['薪資（' + (p.actSalary === p.planSalary ? '照計畫' : '已更正') + '）', fmt(p.actSalary)], ['兼職', fmt(p.actSide)],
-    p.actBonus ? ['年終', fmt(p.actBonus)] : null, ['信貸月付', fmt(p.loanPay)], p.nonLiving ? ['非生活費進出', sgn(p.nonLiving)] : null])}
-  ${check && !D.ack ? `<div class="note ${p.E < 0 ? 'bad' : ''}">${p.E < 0 ? '生活費算出來是負數，可能有漏記的入帳。' : `生活費和預算差了 ${fmt(Math.abs(over))}。`}本期薪資、年終或其他收入有不同嗎？
-    <div class="actions"><button class="small" data-act="open" data-id="d-salary">薪資不同</button><button class="small" data-act="open" data-id="d-flows">有其他大筆進出</button><button class="small" data-act="ack">沒有，就是這樣</button></div></div>` : ''}</div>`;
-  $('[data-act=confirm]').disabled = check && !D.ack;
+  const { p, check, early, snap } = preview, over = p.E - p.budget, prev = lastSnap().cash;
+  const expected = snap.cash + p.E;
+  const h = [`<div class="card"><h3>這期的錢怎麼變化</h3>`];
+  if (early) h.push(`<div class="note bad">距上次結算只有 ${Math.round((Date.parse(p.to) - Date.parse(p.from)) / 864e5)} 天，不是完整週期（預定 ${ymd(E.nextDue(S))}），生活費無法判斷。若只是想看看，請按「清除草稿」。</div>`);
+  h.push(rows([
+    [`上次現金（${md(p.from)}）`, fmt(prev)],
+    [`＋ 薪資（${p.actSalary === p.planSalary ? '照計畫' : '已更正'}）`, fmt(p.actSalary)],
+    p.actSide ? ['＋ 兼職', fmt(p.actSide)] : null, p.actBonus ? ['＋ 年終', fmt(p.actBonus)] : null, p.oneOff ? ['＋ 一次性收入', fmt(p.oneOff)] : null,
+    ['－ 信貸月付', fmt(p.loanPay)], p.nonLiving ? ['± 事件與其他大筆進出', sgn(p.nonLiving)] : null,
+    ['＝ 完全沒花錢的話，應該有', fmt(expected), 'sum'], [`實際現金（${md(p.to)}）`, fmt(snap.cash)]]));
+  if (p.E < 0) {
+    h.push(`<div class="note bad"><b>實際現金比「完全沒花錢」還多 ${fmt(-p.E)} 元。</b><br>代表有錢進來但還沒記，例如年終、家人資助、退款、押金返還、賣股；也請確認總額沒有打錯。選一個類型，再填那筆錢<b>實際入帳的金額</b>（不是上面的差額）：
+      <div class="actions"><button class="small" data-act="quick" data-kind="income">一次性收入（算進度）</button><button class="small" data-act="quick" data-kind="gift">家人資助</button><button class="small" data-act="quick" data-kind="otherIn">退款等其他入帳</button><button class="small" data-act="fixcash">總額打錯了</button></div></div>`);
+  } else {
+    h.push(`<div class="muted" style="margin-top:10px">應有 − 實際 ＝ 這期花掉的錢</div><div class="big">本期生活費 ${fmt(p.E)}</div><div>預算 ${fmt(p.budget)}・${verdict(over)}</div>`);
+    if (check && !D.ack) h.push(over > 0
+      ? `<div class="note">多花了 ${fmt(over)}。如果其中有不是生活費的支出（押金、買股、提前還款），請記到「其他大筆進出」；薪資少領請填「收入有變動」。
+        <div class="actions"><button class="small" data-act="open" data-id="d-flows">有其他大筆支出</button><button class="small" data-act="open" data-id="d-salary">薪資少領</button><button class="small" data-act="ack">沒有，就是這樣花的</button></div></div>`
+      : `<div class="note">比預算少花很多（${fmt(-over)}）。如果有收入沒記（年終、資助、退款），請補上，不然會被當成省下來的錢。
+        <div class="actions"><button class="small" data-act="open" data-id="d-flows">有收入沒記</button><button class="small" data-act="ack">沒有，真的省下來了</button></div></div>`);
+  }
+  $('#preview').innerHTML = h.join('') + '</div>';
+  $('[data-act=confirm]').disabled = p.E < 0 || (check && !D.ack);
 }
 
 async function confirmSettle() {
@@ -340,6 +358,12 @@ const acts = {
   calc: () => { try { calc(); } catch (e) { alert(e.message); } },
   confirm: () => confirmSettle().catch(e => alert(e.message)),
   ack: () => { D.ack = true; showPreview(); },
+  quick: el => {
+    D.flows.push({ kind: el.dataset.kind, amount: '', note: '' }); preview = null; settle();
+    $('#d-flows').open = true; const inp = [...document.querySelectorAll('[data-k$=".amount"][data-k^="flows."]')].at(-1);
+    inp.placeholder = '填實際入帳金額'; inp.focus(); inp.scrollIntoView({ behavior: 'smooth', block: 'center' });
+  },
+  fixcash: () => { preview = null; settle(); const c = $('[data-k=cash]'); c.focus(); c.scrollIntoView({ behavior: 'smooth', block: 'center' }); },
   open: el => { const d = document.getElementById(el.dataset.id); d.open = true; d.scrollIntoView({ behavior: 'smooth' }); },
   addflow: () => { D.flows.push({ kind: 'income', amount: '', note: '' }); preview = null; settle(); },
   discard: async () => { if (confirm('清除這次的結算草稿？')) { D = null; preview = null; S.draft = null; await commit(); settle(); } },
