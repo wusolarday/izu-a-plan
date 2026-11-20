@@ -1,0 +1,96 @@
+{
+ "schemaVersion": 1,
+ "name": "範例計畫（假資料）",
+ "settings": {
+  "settleDay": 21,
+  "tolerance": 2000,
+  "askThreshold": 5000,
+  "stockHaircut": 0.8,
+  "reserve": 100000
+ },
+ "start": {
+  "date": "2026-11-20",
+  "cash": 800000,
+  "stock": 50000
+ },
+ "original": {
+  "planCashAtStart": 800000,
+  "breakdown": []
+ },
+ "plan": {
+  "salary": 50000,
+  "salaryDay": 5,
+  "sideTarget": 3000,
+  "sideStart": "2026-12",
+  "sideDay": 5,
+  "bonus": 70000,
+  "bonusMonth": 2,
+  "bonusDay": 10,
+  "living": 35000,
+  "livingDay": 20,
+  "livingChanges": [],
+  "loans": [
+   {
+    "id": "loan1",
+    "name": "第一筆信貸",
+    "monthly": 6000,
+    "day": 11,
+    "first": "2026-12",
+    "last": "2036-11"
+   }
+  ]
+ },
+ "events": [
+  {
+   "id": "e1",
+   "name": "範例款項A",
+   "type": "other",
+   "amount": -50000,
+   "dateFrom": "2026-12-01",
+   "dateTo": "2026-12-31"
+  },
+  {
+   "id": "e2",
+   "name": "範例工程款1",
+   "type": "construction",
+   "amount": -300000,
+   "dateFrom": "2027-01-11",
+   "dateTo": "2027-01-31"
+  },
+  {
+   "id": "e3",
+   "name": "範例工程款2",
+   "type": "construction",
+   "amount": -300000,
+   "dateFrom": "2027-06-01",
+   "dateTo": "2027-06-30"
+  },
+  {
+   "id": "e4",
+   "name": "範例自備款",
+   "type": "selfFund",
+   "amount": -300000,
+   "dateFrom": "2028-06-01",
+   "dateTo": "2028-06-30",
+   "selfFund": true
+  },
+  {
+   "id": "e5",
+   "name": "範例交屋費（暫估）",
+   "type": "closing",
+   "amount": -80000,
+   "dateFrom": "2028-12-01",
+   "dateTo": "2028-12-31",
+   "estimate": true
+  }
+ ],
+ "sideItems": [
+  {
+   "id": "i1",
+   "name": "範例兼職",
+   "kind": "monthly",
+   "amount": 3000,
+   "active": true
+  }
+ ]
+}

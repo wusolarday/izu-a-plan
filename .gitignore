@@ -1,0 +1,7 @@
+# 個人資料：永遠不進 repo
+private/
+*backup*.json
+aplan-setup*.json
+.DS_Store
+node_modules/
+*.tmp.*

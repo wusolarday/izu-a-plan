@@ -1,0 +1,13 @@
+#!/bin/sh
+# 擋下個人資料進 repo。安裝：cp scripts/pre-commit .git/hooks/pre-commit && chmod +x .git/hooks/pre-commit
+# 要檢查的字串放在 private/sensitive.txt（一行一個，不進 repo）
+list="private/sensitive.txt"
+if git diff --cached --name-only | grep -q '^private/'; then echo "✗ private/ 不可提交"; exit 1; fi
+[ -f "$list" ] || exit 0
+files=$(git diff --cached --name-only --diff-filter=ACM)
+[ -z "$files" ] && exit 0
+while IFS= read -r w; do
+  [ -z "$w" ] && continue
+  if echo "$files" | xargs grep -lF -- "$w" 2>/dev/null | grep -q .; then echo "✗ 提交內容含個人資料「$w」，已取消"; exit 1; fi
+done < "$list"
+exit 0
