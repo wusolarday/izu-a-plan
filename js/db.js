@@ -13,9 +13,9 @@ const tx = async (mode, fn) => {
     req.onerror = () => rej(req.error);
   });
 };
-export const load = () => tx('readonly', s => s.get('state'));
-export const save = state => tx('readwrite', s => s.put(structuredClone(state), 'state'));
-export const clear = () => tx('readwrite', s => s.delete('state'));
+export const load = (key = 'state') => tx('readonly', s => s.get(key));
+export const save = (state, key = 'state') => tx('readwrite', s => s.put(structuredClone(state), key));
+export const clear = (key = 'state') => tx('readwrite', s => s.delete(key));
 export async function persist() {
   try { return navigator.storage?.persist ? await navigator.storage.persist() : false; } catch { return false; }
 }

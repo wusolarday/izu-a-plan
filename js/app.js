@@ -5,6 +5,7 @@ import { VERSION } from './version.js';
 let S = null;          // 全部資料
 let D = null;          // 結算草稿
 let preview = null;    // 試算結果
+let sandbox = false;   // 測試模式：開始前的資料存在 'sandbox'
 const $ = sel => document.querySelector(sel);
 const app = $('#app');
 
@@ -44,6 +45,7 @@ window.addEventListener('hashchange', render);
 
 function banners() {
   const b = [];
+  if (sandbox) b.push('<div class="note info"><b>測試模式中</b>：可以隨意結算、改事件。<div class="actions"><button class="small pri" data-act="sbEnd">結束並還原</button><button class="small" data-act="sbKeep">保留目前結果</button></div></div>');
   const due = E.nextDue(S);
   if (today() >= due) b.push(`<div class="note">${today() === due ? '今天是結算日' : `已過結算日（${md(due)}）`}，<a href="#settle">開始結算</a>。</div>`);
   const lb = S.lastBackup;
@@ -139,8 +141,9 @@ function settle() {
   const h = [`<div class="card"><h3>結算日</h3><input type="date" ${field('date')}><div class="muted">上次結算 ${ymd(last.date)}・預定 ${ymd(E.nextDue(S))}</div></div>`];
   h.push(`<div class="card"><h3>現金總額</h3><input inputmode="numeric" ${field('cash', 'placeholder="所有帳戶＋現金＋定存"')}>
     <details><summary>帳戶計算機</summary>${accNames.length ? accNames.map((n, i) => `<label>${esc(n)}</label><input inputmode="numeric" ${field('acc.' + i)}>`).join('') + '<div class="actions"><button class="small" data-act="accsum">加總填入</button></div>' : '<p class="muted">到「設定」新增帳戶暱稱即可使用。</p>'}</details>
+    <div class="muted">輸入網銀看到的總額即可，已包含本期入帳的薪資、兼職。</div>
     <label>股票市值（選填，不算現金）</label><input inputmode="numeric" ${field('stock')}></div>`);
-  h.push(`<div class="card"><h3>兼職收入</h3>${S.sideItems.filter(i => i.active).map(i => `<label>${esc(i.name)}${i.kind === 'once' ? '（單次）' : ''}</label><input inputmode="numeric" ${field('side.' + i.id)}>`).join('')}
+  h.push(`<div class="card"><h3>兼職收入</h3><div class="muted">填本期實際收到的金額（沒收到填 0）。這筆已在現金總額裡，工具不會重複加。</div>${S.sideItems.filter(i => i.active).map(i => `<label>${esc(i.name)}${i.kind === 'once' ? '（單次）' : ''}</label><input inputmode="numeric" ${field('side.' + i.id)}>`).join('')}
     <details><summary>新增一筆兼職</summary><label>名稱</label><input ${field('newSide.name')}><label>本期金額</label><input inputmode="numeric" ${field('newSide.amount')}>
     <div class="opts">${radio('newSide.kind', 'once', '單次')}${radio('newSide.kind', 'monthly', '每月固定')}</div></details></div>`);
   for (const ev of q.events) {
@@ -196,13 +199,14 @@ function calc() {
   const snap = buildSnap();
   const tmp = structuredClone(S); tmp.snapshots.push(snap);
   const p = E.calcPeriod(tmp, lastSnap(), snap);
-  preview = { snap, p, check: E.needsIncomeCheck(S, p) };
+  const early = snap.date < E.addDays(E.nextDue(S), -5);
+  preview = { snap, p, early, check: !early && E.needsIncomeCheck(S, p) };
   settle();
 }
 
 function showPreview() {
-  const { p, check } = preview, over = p.E - p.budget;
-  $('#preview').innerHTML = `<div class="card"><h3>試算結果</h3>${rows([
+  const { p, check, early } = preview, over = p.E - p.budget;
+  $('#preview').innerHTML = `<div class="card"><h3>試算結果</h3>${early ? `<div class="note bad">距上次結算只有 ${Math.round((Date.parse(p.to) - Date.parse(p.from)) / 864e5)} 天，不是完整週期（預定 ${ymd(E.nextDue(S))}），生活費無法判斷。若只是想看看，請按「清除草稿」。</div>` : ''}${rows([
     ['本期生活費（現金流出）', fmt(p.E)], ['預算', fmt(p.budget)],
     [over > 0 ? '超支' : '剩餘', `<span class="${over > tol() ? 'bad' : over > 0 ? 'warn' : 'good'}">${fmt(Math.abs(over))}</span>`],
     ['薪資（' + (p.actSalary === p.planSalary ? '照計畫' : '已更正') + '）', fmt(p.actSalary)], ['兼職', fmt(p.actSide)],
@@ -213,6 +217,7 @@ function showPreview() {
 }
 
 async function confirmSettle() {
+  if (preview?.early && !confirm('這次不是完整週期，確定要結算嗎？')) return;
   const snap = buildSnap(), applied = { events: [], plan: [], sideItems: [] };
   const q = E.questions(S, snap.date);
   for (const ev of q.events) {
@@ -287,6 +292,7 @@ function settings() {
       <button class="small" data-act="sidetoggle" data-id="${i.id}">${i.active ? '停用' : '啟用'}</button></div>`).join('')}</div>
       <div class="inline"><input id="sn" placeholder="名稱"><input id="sa" inputmode="numeric" placeholder="每月預設金額"></div>
       <div class="actions"><button class="small" data-act="sideadd">新增每月項目</button></div><p class="muted">單次收入在結算時新增即可。</p></div>
+    <div class="card"><h3>測試模式</h3><p class="muted">先把目前資料存一份，之後怎麼試都能一鍵還原到開始前。</p><div class="actions">${sandbox ? '<button class="pri" data-act="sbEnd">結束並還原</button>' : '<button data-act="sbStart">開始測試模式</button>'}</div></div>
     <div class="card"><h3>提醒與資料</h3><div class="actions">
       <button data-act="ics">下載行事曆提醒</button><button data-act="backup">備份</button><button data-act="import">匯入備份</button></div>
       <p class="muted">上次備份：${S.lastBackup ? S.lastBackup.slice(0, 10) : '無'}・版本 ${VERSION}・<span id="pst"></span></p>
@@ -327,6 +333,9 @@ const acts = {
   import: () => { $('#file').value = ''; $('#file').click(); },
   demo: async () => { S = E.initFromSetup(await (await fetch('setup.example.json')).json()); await commit('試用範例'); render(); },
   backup, undo: undoLast,
+  sbStart: async () => { await DB.save(S, 'sandbox'); sandbox = true; render(); },
+  sbEnd: async () => { if (!confirm('還原到開始測試前的資料？測試期間的變更會全部丟掉。')) return; S = await DB.load('sandbox'); D = null; preview = null; await DB.save(S); await DB.clear('sandbox'); sandbox = false; location.hash = '#home'; render(); },
+  sbKeep: async () => { if (!confirm('保留測試期間的變更，並結束測試模式？')) return; await DB.clear('sandbox'); sandbox = false; render(); },
   update: () => navigator.serviceWorker.getRegistration().then(r => r?.waiting?.postMessage('skip')),
   calc: () => { try { calc(); } catch (e) { alert(e.message); } },
   confirm: () => confirmSettle().catch(e => alert(e.message)),
@@ -391,7 +400,7 @@ if ('serviceWorker' in navigator) {
 
 // ---------- 啟動 ----------
 (async () => {
-  try { const raw = await DB.load(); S = raw ? E.migrate(raw) : null; } catch (e) { alert('讀取資料失敗：' + e.message); }
+  try { const raw = await DB.load(); S = raw ? E.migrate(raw) : null; sandbox = !!(await DB.load('sandbox')); } catch (e) { alert('讀取資料失敗：' + e.message); }
   DB.persist();
   render();
 })();
