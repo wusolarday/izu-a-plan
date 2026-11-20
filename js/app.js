@@ -81,7 +81,7 @@ function home() {
     g.push(`<div class="card"><h3>兼職收入</h3><div class="big">${fmt(p.actSide)}</div>
       <div>${sd >= 0 ? `<span class="good">${sd ? '超過目標 ' + fmt(sd) : '達標'}</span>` : `<span class="bad">低於目標 ${fmt(-sd)}</span>`}</div>
       <div class="muted">目標 ${fmt(p.planSide)}</div></div>`);
-    g.push(progressCard(r));
+    g.push(progressCard());
   }
   const ev = E.nextEvent(S);
   if (ev) g.push(eventCard(ev, '下一事件'));
@@ -92,16 +92,14 @@ function home() {
   app.innerHTML = h.join('');
 }
 
-function progressCard(r) {
-  const core = [['薪資差異', sgn(r.salary)], ['年終差異', sgn(r.bonusDiff)], ['兼職差異', sgn(r.side)], ['生活費（省下為正）', sgn(r.living)],
-    ['一次性收入', sgn(r.oneOff)], ['事件金額差異', sgn(r.eventAmount)]].filter(x => x[1] !== '0');
-  const aside = [['年終未發（時間差）', sgn(r.bonusPending)], ['事件未付／提前付（時間差）', sgn(r.eventTiming)], ['股票、資助、借款等轉換', sgn(r.transfer)]].filter(x => x[1] !== '0');
-  const ob = (S.original.breakdown || []).map(b => [b.label, sgn(b.amount)]);
-  return `<div class="card"><h3>累積進度</h3><div class="big">${status(r.status)}</div><div class="muted">相對目前計畫，不含時間差</div>
-  <details><summary>原因拆解</summary>${rows([...core, ['合計', sgn(r.status), 'sum']])}
-  ${aside.length ? `<p class="muted">以下不算進度：</p>${rows(aside)}` : ''}
-  <p class="muted">帳上與目前計畫差 ${sgn(r.total)}</p></details>
-  <details><summary>相對原A計畫 ${sgn(r.vsOriginal)}</summary>${rows([...ob.map(x => [x[0] + '（起點）', x[1]]), ['起點以來', sgn(r.total)], ['合計', sgn(r.vsOriginal), 'sum']])}</details></div>`;
+function progressCard() {
+  const t = E.standing(S), sum = t.parts.reduce((a, x) => a + x[1], 0);
+  return `<div class="card"><h3>累積進度</h3><div class="big">${status(t.diff)}</div>
+  ${rows([[`目標（${md(t.date)}）`, fmt(t.target)], ['實際', fmt(t.actual)]])}
+  ${t.parts.length ? `<details><summary>差在哪裡</summary>${rows([...t.parts.map(([l, v]) => [esc(l), sgn(v)]), ['合計', sgn(sum), 'sum']])}</details>` : ''}
+  <div style="margin-top:10px"><b>下一期目標（${ymd(t.nextDate)}）：${fmt(t.nextTarget)}</b></div>
+  ${t.pending.map(p => `<div class="muted">${esc(p.name)} 最晚 ${md(p.dateTo)} 付，付款後目標會再減 ${fmt(-p.amount)}</div>`).join('')}
+  <details><summary>相對原A計畫 ${sgn(t.vsOriginal)}</summary>${rows([...(S.original.breakdown || []).map(b => [esc(b.label) + '（起點）', sgn(b.amount)]), ['起點以來', sgn(t.diff)], ['合計', sgn(t.vsOriginal), 'sum']])}</details></div>`;
 }
 
 function eventCard(ev, title) {

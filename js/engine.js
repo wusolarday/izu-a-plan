@@ -123,6 +123,42 @@ export function forecast(state, toDate) {
   return { start: last, timeline: tl };
 }
 
+/** 目標現金：起點＋計畫收支＋已到期（或已付清）事件。超前／落後＝實際−目標，不排除任何項目。 */
+export function targetCash(state, d) {
+  const s0 = state.snapshots[0];
+  let t = s0.cash + sum(regularItems(state.plan, s0.date, d), i => i.amount);
+  for (const ev of state.events) {
+    if (ev.status === 'cancelled') continue;
+    t += ev.dateTo <= d || ev.status === 'paid' ? ev.amount : eventPaid(state, ev, d);
+  }
+  return t;
+}
+
+const FLOW_LABEL = { income: '一次性收入', gift: '家人資助', stockSell: '賣股入帳', loanIn: '借款入帳', stockBuy: '買股', prepay: '提前還款', otherOut: '其他支出', otherIn: '其他入帳' };
+
+/** 首頁用：本期目標 vs 實際、差在哪裡、下一期目標 */
+export function standing(state) {
+  const last = state.snapshots[state.snapshots.length - 1], d = last.date;
+  const target = targetCash(state, d), diff = last.cash - target;
+  const r = progress(state), parts = [];
+  const add = (label, v) => { if (Math.round(v)) parts.push([label, v]); };
+  add('薪資', r.salary); add('兼職', r.side); add('生活費（少花為正）', r.living);
+  for (const b of bonusStatus(state, d)) add(`${b.year}年終${b.received === null ? '（尚未入帳）' : ''}`, (b.received ?? 0) - b.plan);
+  const byKind = {};
+  for (const p of r.periods) for (const f of p.flows) if (f.kind !== 'event') byKind[f.kind] = (byKind[f.kind] || 0) + f.amount;
+  for (const [k, v] of Object.entries(byKind)) add(FLOW_LABEL[k] || k, v);
+  for (const ev of state.events) {
+    if (ev.status === 'cancelled') continue;
+    const counted = ev.dateTo <= d || ev.status === 'paid' ? ev.amount : eventPaid(state, ev, d);
+    add(ev.name + (ev.status === 'paid' ? '' : ev.dateTo <= d ? '（尚未付清）' : ''), eventPaid(state, ev, d) - counted);
+  }
+  const nextDate = nextDue(state);
+  const pending = state.events.filter(ev => isOpen(ev) && ev.dateFrom <= nextDate && ev.dateTo > nextDate)
+    .map(ev => ({ name: ev.name, amount: eventRemaining(state, ev), dateTo: ev.dateTo }));
+  return { date: d, actual: last.cash, target, diff, parts, nextDate, nextTarget: targetCash(state, nextDate), pending,
+    vsOriginal: diff + (state.snapshots[0].cash - state.original.planCashAtStart) };
+}
+
 export const nextEvent = state => state.events.filter(isOpen).sort((a, b) => (a.dateFrom < b.dateFrom ? -1 : 1))[0] || null;
 
 /** 事件付款後預測現金與備用金缺口 */

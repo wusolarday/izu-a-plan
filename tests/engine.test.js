@@ -128,3 +128,18 @@ test('sw.js 與 app 版本一致', () => {
 test('下次應結算日：起點 11/20 → 12/21', () => {
   assert.equal(E.nextDue(base()), '2026-12-21');
 });
+
+test('standing：實際−目標，差在哪裡加總等於差額', () => {
+  const s = base();
+  settle(s, { date: '2026-12-21', cash: 1100000, side: [{ amount: 0 }], flows: [{ kind: 'gift', amount: 300000 }] }); // e1 未付但區間未過
+  let t = E.standing(s);
+  assert.equal(t.target, 812000 - 3000 + 3000); // 起點＋12,000
+  assert.equal(t.diff, 1100000 - 812000);
+  assert.equal(Math.round(t.parts.reduce((a, x) => a + x[1], 0)), t.diff);
+  // 1/21：e1（12/31 到期）未付 → 目標已扣，實際未扣 → 顯示尚未付清
+  settle(s, { date: '2027-01-21', cash: 1112000, side: [{ amount: 3000 }] });
+  t = E.standing(s);
+  assert.equal(Math.round(t.parts.reduce((a, x) => a + x[1], 0)), t.diff);
+  assert.ok(t.parts.some(([l]) => l.includes('尚未付清')));
+  assert.equal(t.nextDate, '2027-02-21');
+});

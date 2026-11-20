@@ -26,7 +26,7 @@
 - 事件已付金額**只**由 `flows(kind='event')` 推導，不另存。
 - `flows.kind`：`event`（事件付款）、`income`（一次性收入，算進度）、`gift`/`loanIn`/`stockSell`（流入，不算進度）、`stockBuy`/`prepay`/`otherOut`（流出，不算生活費）。
 - 計畫參數變更用 `plan.*Changes = [{from:'YYYY-MM', amount}]`。
-- 進度 `status` 不含時間差（年終未發、事件未付）與資產轉換；`total` 是帳上與計畫的總差。
+- **首頁進度用 `standing()`**：超前／落後＝實際現金−`targetCash(d)`，不排除任何項目（使用者要求）。目標含計畫收支，以及「最晚日已過或已付清」的事件；「差在哪裡」各項加總必等於差額。`progress()` 只提供分項給 `standing` 與紀錄頁。
 
 ## 指令
 
