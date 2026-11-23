@@ -137,7 +137,7 @@ function pop(el) { // 作用物件彈性放大
   el?.animate?.([{ transform: 'scale(1)' }, { transform: 'scale(1.07)', offset: 0.35 }, { transform: 'scale(.985)', offset: 0.7 }, { transform: 'scale(1)' }],
     { duration: 650, easing: 'cubic-bezier(.2,.8,.2,1)' });
 }
-function confetti(el) {
+function confetti(el, gentle) { // gentle＝有開「減少動態效果」：不飛、不轉，只在卡片周圍淡入淡出
   // 物理：重力 G 往下；空氣阻力跟速度成正比（a = G − k·v），所以噴出後很快減速，
   // 之後以「終端速度」G/k 慢慢飄落，翻面時左右擺盪；最後一段淡出。
   const kind = pieceKind(), K = PIECES[kind], rnd = (a, b) => a + Math.random() * (b - a);
@@ -147,19 +147,27 @@ function confetti(el) {
   const ctx = cv.getContext('2d'); ctx.scale(dpr, dpr);
   const r = el?.getBoundingClientRect(), ox = r ? r.left + r.width / 2 : W / 2, oy = r ? Math.min(r.bottom, H - 40) : H * 0.75;
   const G = 900;
-  const P = Array.from({ length: K.n }, () => {
+  const P = gentle ? Array.from({ length: Math.round(K.n / 2) }, () => ({
+    x: ox + (Math.random() - 0.5) * (r ? r.width + 40 : W * 0.8), y: (r ? r.top + Math.random() * r.height : H / 2) + (Math.random() - 0.5) * 60,
+    w: rnd(K.size[0], K.size[1]), h: rnd(K.size[2], K.size[3]), rot: Math.random() * 6.3, flip: 0, c: K.colors[Math.random() * K.colors.length | 0], life: 1.8, t: 0, gentle: true,
+  })) : Array.from({ length: K.n }, () => {
     const ang = (-90 + (Math.random() - 0.5) * 70) * Math.PI / 180, v = rnd(1300, 2000);
     return { x: ox + (Math.random() - 0.5) * (r ? r.width * 0.6 : 120), y: oy, vx: Math.cos(ang) * v, vy: Math.sin(ang) * v,
       k: rnd(K.drag[0], K.drag[1]), w: rnd(K.size[0], K.size[1]), h: rnd(K.size[2], K.size[3]),
       rot: Math.random() * 6.3, vr: rnd(-5, 5), flip: Math.random() * 6.3, vf: rnd(3, 7), ph: Math.random() * 6.3,
       c: K.colors[Math.random() * K.colors.length | 0], life: rnd(3.2, 4.4), t: 0 };
   });
-  let last = performance.now();
+  let last = null;
   const tick = now => {
-    const dt = Math.min(0.033, (now - last) / 1000); last = now;
+    if (last === null) last = now; // Safari 第一格的時間可能比建立時還早，從第一格開始算
+    const dt = Math.max(0, Math.min(0.033, (now - last) / 1000)); last = now;
     ctx.clearRect(0, 0, W, H); let alive = 0;
     for (const q of P) {
       q.t += dt; if (q.t > q.life || q.y > H + 40) continue; alive++;
+      if (q.gentle) {
+        ctx.save(); ctx.globalAlpha = Math.min(1, q.t / 0.3, (q.life - q.t) / 0.6);
+        ctx.translate(q.x, q.y); ctx.rotate(q.rot); drawPiece(ctx, kind, q.w, q.h, q.c); ctx.restore(); continue;
+      }
       q.vx += -q.k * q.vx * dt; q.vy += (G - q.k * q.vy) * dt; // 重力＋空氣阻力
       q.x += q.vx * dt; q.y += q.vy * dt; q.rot += q.vr * dt; q.flip += q.vf * dt;
       const sway = Math.sin(q.t * 2.2 + q.ph) * K.sway * Math.min(1, q.t / 0.6); // 飄落時左右擺盪
@@ -173,7 +181,7 @@ function confetti(el) {
 }
 function celebrate(msg, el) {
   if (msg) toast(msg, 'star');
-  if (reducedMotion()) return;
+  if (reducedMotion()) { confetti(el, true); return; } // 減少動態效果：溫和版本，不是完全沒有
   pop(el); confetti(el);
 }
 // 每個畫面效果只播一次（記在這台裝置）
@@ -672,6 +680,7 @@ function settings() {
   const st = S.settings, pal = document.documentElement.dataset.palette;
   app.innerHTML = `<h2>設定</h2>
     <div class="card"><h3>外觀</h3><div class="swatches">${Object.entries(PALETTES).map(([k, n]) => `<button class="swatch ${pal === k ? 'on' : ''}" data-act="palette" data-p="${k}" data-palette="${k}" aria-pressed="${pal === k}"><i></i>${n}</button>`).join('')}</div>
+      <div class="actions"><button class="small" data-act="tryCelebrate">${ic('star')}試播慶祝效果</button></div>
       <label>深色／淺色</label><div class="seg">${Object.entries(MODES).map(([k, n]) => `<button class="${(document.documentElement.dataset.mode || 'auto') === k ? 'on' : ''}" data-act="mode" data-m="${k}" aria-pressed="${(document.documentElement.dataset.mode || 'auto') === k}">${n}</button>`).join('')}</div></div>
     <form class="card" id="dayf"><h3>提醒</h3><label>每個月幾號結算</label><input name="settleDay" inputmode="numeric" value="${st.settleDay}">
       <div class="actions"><button class="pri" data-act="daysave">儲存</button><button data-act="ics">${ic('calendar')}加到手機行事曆</button></div>
@@ -738,6 +747,7 @@ const acts = {
   sbKeep: async () => { await DB.clear('sandbox'); sandbox = false; sheet(''); render(); toast('測試結果已保留'); },
   update: () => navigator.serviceWorker.getRegistration().then(r => r?.waiting?.postMessage('skip')),
   checkUpdate: el => checkUpdate(el),
+  tryCelebrate: el => celebrate(reducedMotion() ? '手機有開「減少動態效果」，所以是溫和版本' : '這就是慶祝效果', el.closest('.card')),
   calc: () => { try { calc(); } catch (e) { showError(e); } },
   confirm: () => confirmSettle().catch(showError),
   ack: () => {
