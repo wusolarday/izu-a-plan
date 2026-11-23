@@ -36,6 +36,12 @@ node private/check-real.mjs          # 用真實設定看預測（本機）
 python3 -m http.server 8765          # 本機預覽
 ```
 
+## 在 Claude Code 工作
+
+- 這台 Mac 已登入 GitHub，可直接 `git commit` / `git push`（GitHub Desktop 也可）。
+- 專案 skill：`.claude/skills/new-feature`（做功能）、`.claude/skills/release`（發布）。
+- 背景與決策紀錄：`private/HANDOFF.md`（不進 repo）。
+
 ## 省 token 的做法
 
 - 先讀本檔與相關函式，不要整包讀檔；engine 函式名稱即說明。
