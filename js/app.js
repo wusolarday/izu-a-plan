@@ -100,32 +100,60 @@ function toast(msg, icon) {
 // ---------- 正向回饋：彩紙爆發 ----------
 // 只在真的值得慶祝的時候用；有開「減少動態效果」就只顯示文字。不靠外部套件，自己算重力與拋物線。
 const reducedMotion = () => matchMedia('(prefers-reduced-motion: reduce)').matches;
-const CONFETTI = ['#fff6c2', '#ffec99', '#ffe066', '#fcd34d', '#f6c445', '#eab308', '#d4a017'];
+// 紙片的樣子跟著配色：鮭魚＝鮭魚片、木頭系＝樹葉、其他＝淺黃到金黃紙片
+// drag：空氣阻力係數（越大飄越慢）；sway：左右擺盪幅度
+const PIECES = {
+  paper: { n: 110, size: [6, 12, 9, 18], drag: [3.2, 4.2], sway: 14, colors: ['#fff6c2', '#ffec99', '#ffe066', '#fcd34d', '#f6c445', '#eab308', '#d4a017'] },
+  leaf: { n: 55, size: [10, 16, 16, 24], drag: [4.2, 5.6], sway: 26, colors: ['#7f9a3e', '#9bb04a', '#c3a33a', '#d98c2b', '#b8662a', '#a7b04a', '#6f8a3a'] },
+  salmon: { n: 40, size: [20, 28, 12, 17], drag: [2.6, 3.4], sway: 10, colors: ['#f4895c', '#f79a6e', '#ee7a4f', '#fa9f78'] },
+};
+const pieceKind = () => { const p = document.documentElement.dataset.palette; return p === 'salmon' ? 'salmon' : ['wood', 'olive', 'oak'].includes(p) ? 'leaf' : 'paper'; };
+function drawPiece(ctx, kind, w, h, c) {
+  ctx.fillStyle = c;
+  if (kind === 'paper') { ctx.fillRect(-w / 2, -h / 2, w, h); return; }
+  if (kind === 'leaf') { // 葉片＋中間葉脈
+    ctx.beginPath(); ctx.moveTo(0, -h / 2); ctx.quadraticCurveTo(w / 2, -h * 0.05, 0, h / 2); ctx.quadraticCurveTo(-w / 2, -h * 0.05, 0, -h / 2); ctx.fill();
+    ctx.strokeStyle = 'rgba(60,40,10,.28)'; ctx.lineWidth = 1; ctx.beginPath(); ctx.moveTo(0, -h / 2 + 2); ctx.lineTo(0, h / 2 + 3); ctx.stroke();
+    return;
+  }
+  // 鮭魚片：圓角的肉塊＋兩條白色彎曲油花
+  ctx.beginPath(); ctx.roundRect ? ctx.roundRect(-w / 2, -h / 2, w, h, h * 0.42) : ctx.rect(-w / 2, -h / 2, w, h); ctx.fill();
+  ctx.strokeStyle = 'rgba(255,255,255,.88)'; ctx.lineWidth = 1.6; ctx.lineCap = 'round';
+  for (const off of [-0.12, 0.2]) { ctx.beginPath(); ctx.moveTo(w * off - w * 0.08, -h / 2 + 1); ctx.quadraticCurveTo(w * off + w * 0.18, 0, w * off - w * 0.02, h / 2 - 1); ctx.stroke(); }
+}
 function pop(el) { // 作用物件彈性放大
   el?.animate?.([{ transform: 'scale(1)' }, { transform: 'scale(1.07)', offset: 0.35 }, { transform: 'scale(.985)', offset: 0.7 }, { transform: 'scale(1)' }],
     { duration: 650, easing: 'cubic-bezier(.2,.8,.2,1)' });
 }
-function confetti(el) { // 從物件下方噴出紙片：隨機速度、角度，受重力拋物線落下、旋轉翻面、尾段淡出
+function confetti(el) {
+  // 物理：重力 G 往下；空氣阻力跟速度成正比（a = G − k·v），所以噴出後很快減速，
+  // 之後以「終端速度」G/k 慢慢飄落，翻面時左右擺盪；最後一段淡出。
+  const kind = pieceKind(), K = PIECES[kind], rnd = (a, b) => a + Math.random() * (b - a);
   const cv = document.createElement('canvas'), dpr = devicePixelRatio || 1, W = innerWidth, H = innerHeight;
   cv.className = 'confetti'; cv.width = W * dpr; cv.height = H * dpr; cv.setAttribute('aria-hidden', 'true');
   document.body.appendChild(cv);
   const ctx = cv.getContext('2d'); ctx.scale(dpr, dpr);
   const r = el?.getBoundingClientRect(), ox = r ? r.left + r.width / 2 : W / 2, oy = r ? Math.min(r.bottom, H - 40) : H * 0.75;
-  const P = Array.from({ length: 120 }, () => {
-    const ang = (-90 + (Math.random() - 0.5) * 75) * Math.PI / 180, v = 650 + Math.random() * 700;
-    return { x: ox + (Math.random() - 0.5) * (r ? r.width * 0.7 : 120), y: oy, vx: Math.cos(ang) * v, vy: Math.sin(ang) * v,
-      w: 6 + Math.random() * 6, h: 9 + Math.random() * 9, rot: Math.random() * 6.3, vr: (Math.random() - 0.5) * 14,
-      flip: Math.random() * 6.3, vf: 5 + Math.random() * 9, c: CONFETTI[Math.random() * CONFETTI.length | 0], life: 1.6 + Math.random() * 0.8, t: 0 };
+  const G = 900;
+  const P = Array.from({ length: K.n }, () => {
+    const ang = (-90 + (Math.random() - 0.5) * 70) * Math.PI / 180, v = rnd(1300, 2000);
+    return { x: ox + (Math.random() - 0.5) * (r ? r.width * 0.6 : 120), y: oy, vx: Math.cos(ang) * v, vy: Math.sin(ang) * v,
+      k: rnd(K.drag[0], K.drag[1]), w: rnd(K.size[0], K.size[1]), h: rnd(K.size[2], K.size[3]),
+      rot: Math.random() * 6.3, vr: rnd(-5, 5), flip: Math.random() * 6.3, vf: rnd(3, 7), ph: Math.random() * 6.3,
+      c: K.colors[Math.random() * K.colors.length | 0], life: rnd(3.2, 4.4), t: 0 };
   });
-  const G = 1800; let last = performance.now();
+  let last = performance.now();
   const tick = now => {
-    const dt = Math.min(0.033, (now - last) / 1000), drag = Math.pow(0.986, dt * 60); last = now;
+    const dt = Math.min(0.033, (now - last) / 1000); last = now;
     ctx.clearRect(0, 0, W, H); let alive = 0;
     for (const q of P) {
-      q.t += dt; if (q.t > q.life) continue; alive++;
-      q.vx *= drag; q.vy = q.vy * drag + G * dt; q.x += q.vx * dt; q.y += q.vy * dt; q.rot += q.vr * dt; q.flip += q.vf * dt;
-      ctx.save(); ctx.globalAlpha = q.t > q.life * 0.7 ? Math.max(0, 1 - (q.t - q.life * 0.7) / (q.life * 0.3)) : 1;
-      ctx.translate(q.x, q.y); ctx.rotate(q.rot); ctx.scale(1, Math.cos(q.flip)); ctx.fillStyle = q.c; ctx.fillRect(-q.w / 2, -q.h / 2, q.w, q.h); ctx.restore();
+      q.t += dt; if (q.t > q.life || q.y > H + 40) continue; alive++;
+      q.vx += -q.k * q.vx * dt; q.vy += (G - q.k * q.vy) * dt; // 重力＋空氣阻力
+      q.x += q.vx * dt; q.y += q.vy * dt; q.rot += q.vr * dt; q.flip += q.vf * dt;
+      const sway = Math.sin(q.t * 2.2 + q.ph) * K.sway * Math.min(1, q.t / 0.6); // 飄落時左右擺盪
+      ctx.save(); ctx.globalAlpha = q.t > q.life - 0.9 ? Math.max(0, (q.life - q.t) / 0.9) : 1;
+      ctx.translate(q.x + sway, q.y); ctx.rotate(q.rot); ctx.scale(1, Math.cos(q.flip) * 0.85 + (q.flip % 6.3 < 3.15 ? 0.15 : -0.15));
+      drawPiece(ctx, kind, q.w, q.h, q.c); ctx.restore();
     }
     if (alive) requestAnimationFrame(tick); else cv.remove();
   };
@@ -512,7 +540,7 @@ async function confirmSettle() {
   const ach = E.achievements(before, S, today());
   pendingAch = ach.length ? ach : null;
   if (location.hash === '#home') render(); else location.hash = '#home';
-  if (ach.length) await new Promise(r => setTimeout(r, reducedMotion() ? 600 : 1900)); // 先讓慶祝播完再問備份
+  if (ach.length) await new Promise(r => setTimeout(r, reducedMotion() ? 600 : 2600)); // 先讓慶祝播得差不多再問備份
   if (await ask({ title: '結算完成', body: '要現在備份到 iCloud 雲碟嗎？資料只在這台手機，備份比較安心。', ok: `${ic('cloud')}現在備份` })) backup();
 }
 
