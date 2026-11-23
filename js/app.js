@@ -205,45 +205,77 @@ function fixEcho() {
   return `${fmt(v)} 元。加入後，這期花了 <b>${fmt(spent)}</b> 元（預算 ${fmt(b)}，${spent > b ? `多花 ${fmt(spent - b)}` : `少花 ${fmt(b - spent)}`}）`;
 }
 
-function settle() {
-  D ??= S.draft || newDraft();
-  if (D.date <= lastSnap().date) D.date = E.nextDue(S);
-  const q = E.questions(S, D.date), last = lastSnap();
-  const accNames = S.accounts || [];
-  const h = [`<div class="flowbar"><a href="#home">← 回首頁</a><span>這個月的結算</span></div><div class="card" id="c-date"><h3>結算日</h3><input type="date" ${field('date')}><div class="muted">上次結算 ${ymd(last.date)}・預定 ${ymd(E.nextDue(S))}</div></div>`];
-  h.push(`<div class="card" id="c-cash"><h3>現金總額</h3>${money('cash', 'placeholder="所有帳戶＋現金＋定存"')}
+// ---------- 結算：一頁一題 ----------
+// 每一步：ids＝這一步包含的區塊（錯誤訊息用來找是哪一步），html＝內容
+function settleSteps() {
+  const q = E.questions(S, D.date), last = lastSnap(), accNames = S.accounts || [], steps = [];
+  const ask = (title, help) => `<h2 class="q">${title}</h2>${help ? `<p class="q-help">${help}</p>` : ''}`;
+  steps.push({ ids: ['c-cash', 'c-date'], html: `${ask('現在所有帳戶加起來，有多少錢？', '打開網銀，看所有帳戶、現金、定存的總額。這個月的薪水和兼職已經在裡面了，不用另外加。')}
+    <div class="card" id="c-cash">${money('cash', 'placeholder="例如 820000" autofocus')}
     <details><summary>錢分在好幾個帳戶？分開填，幫你加總</summary>${accNames.length ? accNames.map((n, i) => `<label>${esc(n)}</label>${money('acc.' + i)}`).join('') + '<div class="actions"><button class="small" data-act="accsum">加總填入</button></div>' : '<p class="muted" style="margin:8px 0 0">先寫下你有哪些帳戶，之後每個月就會一格一格列出來讓你填。</p>'}
-      ${accNames.length ? '<details><summary>改帳戶清單</summary>' : ''}<label>你有哪些帳戶</label><input id="accnames" placeholder="例如：玉山，郵局，現金" value="${esc(accNames.join('，'))}"><div class="actions"><button class="small" data-act="accsave">儲存</button></div><p class="muted">寫你自己認得的名字就好，不用帳號。用逗號分開。</p>${accNames.length ? '</details>' : ''}</details>
-    <div class="muted">輸入網銀看到的總額即可，已包含本期入帳的薪資、兼職。</div>
-    <label>股票市值（選填，不算現金）</label>${money('stock')}</div>`);
-  h.push(`<div class="card"><h3>兼職收入</h3><div class="muted">填本期實際收到的金額（沒收到填 0）。這筆已在現金總額裡，工具不會重複加。</div>${S.sideItems.filter(i => i.active).map(i => `<label>${esc(i.name)}${i.kind === 'once' ? '（單次）' : ''}</label>${money('side.' + i.id)}`).join('')}
-    <details><summary>新增一筆兼職</summary><label>名稱</label><input ${field('newSide.name')}><label>本期金額</label>${money('newSide.amount')}
-    <div class="opts">${radio('newSide.kind', 'once', '單次')}${radio('newSide.kind', 'monthly', '每月固定')}</div></details></div>`);
+      ${accNames.length ? '<details><summary>改帳戶清單</summary>' : ''}<label>你有哪些帳戶</label><input id="accnames" placeholder="例如：玉山，郵局，現金" value="${esc(accNames.join('，'))}"><div class="actions"><button class="small" data-act="accsave">儲存</button></div><p class="muted">寫你自己認得的名字就好，不用帳號。用逗號分開。</p>${accNames.length ? '</details>' : ''}</details></div>
+    <details class="more" id="c-date"><summary>結算日 ${ymd(D.date)}、股票（選填）</summary><div class="card">
+      <label>結算日</label><input type="date" ${field('date')}><p class="muted" style="margin:4px 0 0">上次結算是 ${ymd(last.date)}</p>
+      <label>股票現在值多少（選填，不算進現金）</label>${money('stock')}</div></details>` });
+  const sides = S.sideItems.filter(i => i.active);
+  steps.push({ ids: ['c-side'], html: `${ask('這個月兼職有收到嗎？', '填這個月實際收到多少，沒收到填 0。這筆已經在剛剛的總額裡，不會重複算。')}
+    <div class="card" id="c-side">${sides.map(i => `<label>${esc(i.name)}${i.kind === 'once' ? '（單次）' : ''}</label>${money('side.' + i.id)}`).join('') || '<p class="muted" style="margin:0">目前沒有兼職項目。</p>'}
+    <details><summary>有新的兼職收入</summary><label>名稱</label><input ${field('newSide.name')}><label>這個月收到多少</label>${money('newSide.amount')}
+    <div class="opts">${radio('newSide.kind', 'once', '只有這一次')}${radio('newSide.kind', 'monthly', '以後每個月都有')}</div></details></div>` });
   for (const ev of q.events) {
-    const k = 'ev.' + ev.id; D.ev[ev.id] ??= { mode: '', amount: -E.eventRemaining(S, ev), from: ev.dateFrom, to: ev.dateTo };
-    h.push(`<div class="card" id="c-ev-${ev.id}"><h3>${esc(ev.name)}付了嗎？</h3><div class="muted">${range(ev)}・剩 ${fmt(-E.eventRemaining(S, ev))} 元</div>
-      <div class="opts">${radio(k + '.mode', 'paid', '已付全額')}${radio(k + '.mode', 'partial', '部分付款')}${radio(k + '.mode', 'no', '還沒付')}${radio(k + '.mode', 'delay', '延期')}</div>
-      ${['paid', 'partial'].includes(D.ev[ev.id].mode) ? `<label>付款金額</label>${money(k + '.amount')}` : ''}
-      ${D.ev[ev.id].mode === 'delay' ? `<div class="inline"><div><label>新日期（最早）</label><input type="date" ${field(k + '.from')}></div><div><label>最晚</label><input type="date" ${field(k + '.to')}></div></div>` : ''}</div>`);
+    const k = 'ev.' + ev.id, left = -E.eventRemaining(S, ev); D.ev[ev.id] ??= { mode: '', amount: left, from: ev.dateFrom, to: ev.dateTo };
+    const m = D.ev[ev.id].mode;
+    steps.push({ ids: ['c-ev-' + ev.id], html: `${ask(`「${esc(ev.name)}」付了嗎？`, `${range(ev)} 要付，還剩 ${about(left)}。`)}
+      <div class="card" id="c-ev-${ev.id}"><div class="opts choices">${radio(k + '.mode', 'paid', '付清了')}${radio(k + '.mode', 'partial', '付了一部分')}${radio(k + '.mode', 'no', '還沒付')}${radio(k + '.mode', 'delay', '改期了')}</div>
+      ${['paid', 'partial'].includes(m) ? `<label>付了多少</label>${money(k + '.amount')}` : ''}
+      ${m === 'delay' ? `<div class="inline"><div><label>新的日期（最早）</label><input type="date" ${field(k + '.from')}></div><div><label>最晚</label><input type="date" ${field(k + '.to')}></div></div>` : ''}</div>` });
   }
   for (const b of q.bonus) {
     const k = 'bonus.' + b.year; D.bonus[b.year] ??= { mode: '', amount: b.plan, scope: 'once' };
-    h.push(`<div class="card" id="c-bonus-${b.year}"><h3>${b.year} 年終發了嗎？</h3><div class="muted">計畫 ${fmt(b.plan)}</div>
-      <div class="opts">${radio(k + '.mode', 'got', '已發')}${radio(k + '.mode', 'no', '還沒發')}</div>
-      ${D.bonus[b.year].mode === 'got' ? `<label>實領金額</label>${money(k + '.amount')}
-      <div class="opts">${radio(k + '.scope', 'once', '只有今年')}${radio(k + '.scope', 'after', '以後也是這個金額')}</div>` : ''}</div>`);
+    steps.push({ ids: ['c-bonus-' + b.year], html: `${ask(`${b.year} 年終發了嗎？`, `計畫是 ${about(b.plan)}。`)}
+      <div class="card" id="c-bonus-${b.year}"><div class="opts choices">${radio(k + '.mode', 'got', '發了')}${radio(k + '.mode', 'no', '還沒發')}</div>
+      ${D.bonus[b.year].mode === 'got' ? `<label>實際拿到多少</label>${money(k + '.amount')}
+      <div class="opts">${radio(k + '.scope', 'once', '只有今年這樣')}${radio(k + '.scope', 'after', '以後也是這個金額')}</div>` : ''}</div>` });
   }
   const planSal = E.regularItems(S.plan, last.date, D.date).filter(i => i.type === 'salary').reduce((t, i) => t + i.amount, 0);
-  h.push(`<details ${D.salary !== '' ? 'open' : ''} id="d-salary"><summary>收入有變動</summary><div class="card"><label>本期薪資實領（空白＝照計畫 ${fmt(planSal)}）</label>${money('salary')}
-    <div class="opts">${radio('salaryScope', 'once', '只有這次（請假等）')}${radio('salaryScope', 'after', '之後都是（調薪等）')}</div></div></details>`);
-  h.push(`<details ${D.flows.length ? 'open' : ''} id="d-flows"><summary>其他大筆進出</summary><div class="card">${D.flows.map((f, i) => `<div class="inline"><select data-k="flows.${i}.kind">${Object.entries(FLOW).map(([v, [l]]) => `<option value="${v}" ${f.kind === v ? 'selected' : ''}>${l}</option>`).join('')}</select>
-    <input inputmode="numeric" placeholder="金額" ${field(`flows.${i}.amount`)}></div><div class="echo" data-echo="flows.${i}.amount">${echo(`flows.${i}.amount`)}</div><input placeholder="備註" ${field(`flows.${i}.note`)}>`).join('<hr>')}
-    <div class="actions"><button class="small" data-act="addflow">新增一筆</button></div></div></details>`);
-  h.push(`<div id="preview"></div><div class="actions full"><button data-act="calc">試算</button><button class="pri" data-act="confirm" disabled>確認結算</button></div><div class="hint" id="cf-hint"></div>
-    <div class="actions"><button class="small" data-act="discard">清除草稿</button></div>`);
-  app.innerHTML = h.join('');
-  if (preview) showPreview(); else setConfirm();
+  steps.push({ ids: ['c-other', 'd-salary', 'd-flows'], html: `${ask('這個月還有其他不一樣的嗎？', '沒有的話，直接按「看結果」。')}
+    <div class="card" id="c-other"><details ${D.salary !== '' ? 'open' : ''} id="d-salary"><summary>薪水跟平常不一樣</summary><label>這個月實際領到多少（平常是 ${fmt(planSal)}）</label>${money('salary')}
+      <div class="opts">${radio('salaryScope', 'once', '只有這次（請假等）')}${radio('salaryScope', 'after', '以後都是（調薪等）')}</div></details>
+    <details ${D.flows.length ? 'open' : ''} id="d-flows"><summary>有大筆的錢進來或出去</summary><p class="muted" style="margin:0">例如家人給的錢、退款、買股票、押金。平常的生活花費不用寫。</p>${D.flows.map((f, i) => `<div class="inline"><select data-k="flows.${i}.kind">${Object.entries(FLOW).map(([v, [l]]) => `<option value="${v}" ${f.kind === v ? 'selected' : ''}>${l}</option>`).join('')}</select>
+      <input inputmode="numeric" placeholder="金額" ${field(`flows.${i}.amount`)}></div><div class="echo" data-echo="flows.${i}.amount">${echo(`flows.${i}.amount`)}</div><input placeholder="備註（選填）" ${field(`flows.${i}.note`)}>`).join('<hr>')}
+      <div class="actions"><button class="small" data-act="addflow">新增一筆</button></div></details></div>` });
+  steps.push({ ids: ['result'], html: `${ask('這個月的結果')}<div id="preview"></div><div class="hint" id="cf-hint"></div>` });
+  return steps;
 }
+const stepOf = (steps, id) => steps.findIndex(st => st.ids.includes(id));
+
+function settle() {
+  D ??= S.draft || newDraft();
+  D.step ??= 0;
+  if (D.date <= lastSnap().date) D.date = E.nextDue(S);
+  const steps = settleSteps(), n = steps.length;
+  D.step = Math.max(0, Math.min(D.step, n - 1));
+  const i = D.step, isResult = i === n - 1, beforeResult = i === n - 2;
+  app.innerHTML = `<div class="flowbar"><a href="#home">← 回首頁</a><span>第 ${i + 1} 步，共 ${n} 步</span></div>
+    <div class="steps" aria-hidden="true">${steps.map((_, j) => `<i class="${j <= i ? 'on' : ''}"></i>`).join('')}</div>
+    ${steps[i].html}
+    ${i === 0 ? '<p style="text-align:center"><button class="plain small" data-act="discard">清除這次填的內容</button></p>' : ''}
+    <div class="stepnav">${i > 0 ? '<button data-act="back">上一步</button>' : '<span></span>'}
+      ${isResult ? '<button class="pri" data-act="confirm" disabled>確認結算</button>' : `<button class="pri" data-act="next">${beforeResult ? '看結果' : '下一步'}</button>`}</div>`;
+  if (isResult) { if (!preview) { try { calc(); return; } catch (e) { return showError(e); } } showPreview(); }
+}
+
+// 下一步：只檢查到目前這一步為止的問題
+function nextStep() {
+  const steps = settleSteps();
+  try { buildSnap(); } catch (e) {
+    const at = stepOf(steps, e.at);
+    if (at !== -1 && at <= D.step) return showError(e);
+  }
+  if (D.step === steps.length - 2) { try { calc(); } catch (e) { showError(e); } return; }
+  D.step++; settle(); window.scrollTo(0, 0);
+}
+function goStep(id) { const k = stepOf(settleSteps(), id); if (k !== -1) { D.step = k; settle(); window.scrollTo(0, 0); } }
 
 const fail = (msg, at) => { throw Object.assign(new Error(msg), { at }); };
 function buildSnap() {
@@ -277,8 +309,7 @@ function calc() {
   const p = E.progress(tmp).periods.at(-1);
   const early = snap.date < E.addDays(E.nextDue(S), -5);
   preview = { snap, p, early, check: !early && !p.carry && !p.unknown && E.needsIncomeCheck(S, p) };
-  settle();
-  $('#preview').scrollIntoView({ behavior: 'smooth', block: 'start' });
+  D.step = settleSteps().length - 1; settle(); window.scrollTo(0, 0);
 }
 
 // 確認鈕：不能按時寫出原因
@@ -295,7 +326,8 @@ function setConfirm() {
 function showError(e) {
   document.querySelectorAll('.card.err').forEach(c => c.classList.remove('err'));
   document.querySelectorAll('.err-msg').forEach(x => x.remove());
-  const card = e.at && document.getElementById(e.at);
+  let card = e.at && document.getElementById(e.at);
+  if (!card && e.at && D) { goStep(e.at); card = document.getElementById(e.at); }
   if (!card) return alert(e.message);
   card.classList.add('err');
   card.insertAdjacentHTML('afterbegin', `<div class="err-msg" role="alert">${esc(e.message)}</div>`);
@@ -520,13 +552,15 @@ const acts = {
     D.flows.push({ kind: 'unknownIn', amount: String(-preview.p.E), note: '' }); D.fix = null;
     try { calc(); } catch (e) { showError(e); }
   },
-  fixcash: () => { preview = null; D.fix = null; D.carry = false; settle(); const c = $('[data-k=cash]'); c.focus(); c.scrollIntoView({ behavior: 'smooth', block: 'center' }); },
+  fixcash: () => { preview = null; D.fix = null; D.carry = false; goStep('c-cash'); $('[data-k=cash]')?.focus(); },
+  next: () => nextStep(),
+  back: () => { D.step--; settle(); window.scrollTo(0, 0); },
   palette: el => { setPalette(el.dataset.p); render(); },
   mode: el => { setMode(el.dataset.m); render(); },
   why: () => { const m = $('#more'), w = $('#why'); m.open = true; if (w) w.open = true; (w || m).scrollIntoView({ behavior: 'smooth', block: 'start' }); },
-  open: el => { const d = document.getElementById(el.dataset.id); d.open = true; d.scrollIntoView({ behavior: 'smooth' }); },
+  open: el => { if (!document.getElementById(el.dataset.id)) goStep(el.dataset.id); const d = document.getElementById(el.dataset.id); d.open = true; d.scrollIntoView({ behavior: 'smooth' }); },
   addflow: () => { D.flows.push({ kind: 'income', amount: '', note: '' }); preview = null; settle(); },
-  discard: async () => { if (confirm('清除這次的結算草稿？')) { D = null; preview = null; S.draft = null; await commit(); settle(); } },
+  discard: async () => { if (confirm('清除這次填的內容，從頭開始？')) { D = null; preview = null; S.draft = null; await commit(); settle(); } },
   accsum: () => { D.cash = String(Object.values(D.acc).reduce((t, v) => t + (num(v) || 0), 0)); preview = null; settle(); },
   ics: () => shareFile('izu-a-plan-reminder.ics', E.makeIcs(S.settings.settleDay, today()), 'text/calendar'),
   reset: async () => { if (prompt('輸入「清除」以刪除這台裝置上的全部 A計畫 資料（建議先備份）') === '清除') { await DB.clear(); S = null; render(); } },
