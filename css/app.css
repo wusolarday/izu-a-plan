@@ -151,6 +151,11 @@ button .ic,.btn .ic{margin:0 2px}
 .ring-pct small{font-size:12px;margin-left:1px}
 .ring-txt{display:flex;flex-direction:column;gap:2px}.ring-txt b{font-size:19px}.ring-txt span{font-size:15px;color:var(--muted)}
 .ring-txt span.good{color:var(--good-t)}.ring-txt span.warn{color:var(--warn-t)}.ring-txt span.bad{color:var(--bad-t)}
+.lead{display:flex;justify-content:space-between;align-items:baseline}
+.ring-wrap.sm{width:60px;height:60px}.ring-wrap.sm .ring-pct{font-size:15px}.ring-wrap.sm .ring-pct small{font-size:10px}
+.ring-txt{align-items:flex-start}.ring-txt .ink{color:var(--ink);font-size:16px}.ring-txt .ink b{font-size:18px}
+.foot-link{text-align:center;margin:8px 0 0;font-size:15px}
+
 /* 款項時間軸：一條線串起每筆，節點顏色＝夠不夠 */
 .rail{align-self:stretch;position:relative;display:flex;align-items:center;justify-content:center}
 .rail::before{content:"";position:absolute;left:50%;top:-12px;bottom:-12px;width:2px;margin-left:-1px;background:var(--line)}

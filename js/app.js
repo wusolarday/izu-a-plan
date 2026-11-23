@@ -45,7 +45,7 @@ const iconBtn = (name, label, attrs) => `<button class="icon-btn" aria-label="${
 const rows = list => `<table class="rows">${list.filter(Boolean).map(([a, b, cls]) => `<tr class="${cls || ''}"><td>${a}</td><td class="num">${b}</td></tr>`).join('')}</table>`;
 
 // 配色：色碼在 css/theme.css，這裡只列名稱。存在這台裝置（不進備份）
-const PALETTES = { choco: '巧克力', indigo: '靛紫', lavender: '薰衣草', ocean: '霧藍', sage: '鼠尾草', pine: '松綠', coral: '珊瑚', graphite: '石墨' };
+const PALETTES = { ocean: '霧藍', lavender: '薰衣草', sage: '鼠尾草', coral: '珊瑚', graphite: '石墨' };
 const MODES = { auto: '跟著手機', light: '淺色', dark: '深色' };
 function setMode(m) {
   if (m === 'auto') delete document.documentElement.dataset.mode; else document.documentElement.dataset.mode = m;
@@ -59,6 +59,7 @@ function setPalette(name) {
 }
 const syncThemeColor = () => $('meta[name=theme-color]')?.setAttribute('content', getComputedStyle(document.documentElement).getPropertyValue('--bg').trim());
 matchMedia('(prefers-color-scheme: dark)').addEventListener?.('change', syncThemeColor);
+if (!PALETTES[document.documentElement.dataset.palette]) setPalette('ocean'); // 舊的配色已拿掉，改用預設
 syncThemeColor();
 
 async function commit(msg) {
@@ -138,27 +139,25 @@ function home() {
   if (ago == null || ago > 35) todo.push(`<div class="row"><div class="what"><b>${lb ? `上次備份是 ${ago} 天前` : '還沒有備份過'}</b><span>資料只在這台手機，備份到 iCloud 雲碟比較安心</span></div><button class="pri small" data-act="backup">${ic('cloud')}備份</button></div>`);
   if (todo.length) h.push(`<section class="card todo"><h3>要做的事</h3>${todo.join('')}</section>`);
 
-  // 2. 生活費：先講接下來可以花多少，再看上一期花了多少
+  // 2. 生活費：主＝接下來可以花多少；次＝上個月花了多少（一行＋一個標籤）
   let last2 = '';
   if (p) {
-    const sd = p.actSide - p.planSide, span = `${md(p.from)}～${md(p.to)}${p.periods > 1 ? `，${p.periods} 個月一起算` : ''}`;
-    let body;
-    if (p.carry) body = `<p class="big-sm">先不判斷</p><p class="muted">這期併入下期，下次結算兩期一起算。</p>`;
-    else if (p.unknown) body = `<p class="big-sm">無法判斷</p><p class="muted">有找不到來源的錢，這段不列入生活費統計。</p>`;
+    let ring = '', line, tag = '';
+    if (p.carry) line = '上個月先不判斷，下次兩期一起算';
+    else if (p.unknown) line = '上個月有找不到來源的錢，不列入';
     else {
       const over = p.E - p.budget, pct = Math.max(0, Math.round(p.E / p.budget * 100)), lvl = over > tol() ? 'bad' : over > 0 ? 'warn' : 'good';
-      body = `<div class="ringrow"><div class="ring-wrap" role="img" aria-label="花了預算的 ${pct}%"><svg class="ring ${lvl}" viewBox="0 0 40 40" aria-hidden="true">
-          <circle class="track" cx="20" cy="20" r="16"/><circle class="val" cx="20" cy="20" r="16" pathLength="100" stroke-dasharray="${Math.min(100, pct)} 100"/></svg>
-          <span class="ring-pct num-r">${pct}<small>%</small></span></div>
-        <div class="ring-txt"><b class="num-r">花了約 ${about(p.E)}</b><span>預算 ${about(p.budget)}</span>
-          <span class="${lvl}">${over > tol() ? `多花了約 ${about(over)}` : over > 0 ? `多花一點點（約 ${about(over)}）` : `比預算少花約 ${about(-over)}`}</span></div></div>`;
+      ring = `<div class="ring-wrap sm" role="img" aria-label="花了預算的 ${pct}%"><svg class="ring ${lvl}" viewBox="0 0 40 40" aria-hidden="true">
+        <circle class="track" cx="20" cy="20" r="16"/><circle class="val" cx="20" cy="20" r="16" pathLength="100" stroke-dasharray="${Math.min(100, pct)} 100"/></svg>
+        <span class="ring-pct num-r">${pct}<small>%</small></span></div>`;
+      line = `上個月花了 <b class="num-r">${about(p.E)}</b>`;
+      tag = `<span class="chip ${lvl}">${over > 0 ? `多花 ${about(over)}` : `少花 ${about(-over)}`}</span>`;
     }
-    last2 = `<div class="sub-block"><p class="label">上一期（${span}）</p>${body}
-      <p class="muted" style="margin:6px 0 0">兼職收入約 ${about(p.actSide)}${sd < 0 ? `，比目標少 ${about(-sd)}` : '，有達標'}</p></div>`;
+    last2 = `<div class="sub-block ringrow">${ring}<div class="ring-txt"><span class="ink">${line}</span>${tag}</div></div>`;
   }
   h.push(`<section class="card"><h3>生活費</h3>
-    <p class="label">${md(hs.nextDate)} 結算前，可以花</p><p class="big num-r">${about(hs.nextBudget)}</p>
-    <p class="muted" style="margin:0">${due ? '' : `還有 ${hs.daysLeft} 天結算　<a href="#settle">提早結算</a>`}</p>${last2}</section>`);
+    <div class="lead"><p class="label">${md(hs.nextDate)} 前可以花</p>${due ? '' : `<span class="muted">還有 ${hs.daysLeft} 天</span>`}</div>
+    <p class="big num-r">${about(hs.nextBudget)}</p>${last2}</section>`);
 
   // 3. 接下來的大筆款項：時程表（日期｜名稱｜金額＋夠不夠）
   const open = S.events.filter(E.isOpen).sort((a, b) => (a.dateFrom < b.dateFrom ? -1 : 1));
@@ -178,6 +177,7 @@ function home() {
       <p class="muted" style="margin:8px 0 0"><span class="chip good only in-text">${ic('check')}</span> 付完還留得住至少要留的 ${about(S.settings.reserve)}</p><p style="margin:4px 0 0;text-align:right"><a href="#plan">看全部款項</a></p></section>`);
   }
   h.push(detailHtml(last));
+  if (!due) h.push('<p class="foot-link"><a href="#settle">提早結算</a></p>');
   app.innerHTML = h.join('');
 }
 
