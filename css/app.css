@@ -139,9 +139,10 @@ button .ic,.btn .ic{margin:0 2px}
   background:color-mix(in srgb,var(--on-pri) 18%,transparent)}
 .pill .ic{width:16px;height:16px;stroke-width:2.4}
 .hero.warn .pill{background:var(--surface);color:var(--warn-t)}
-/* 落後：嚴肅的暗色實心底，沒有漸層、高光或彩色陰影；只有警告標籤是亮的 */
-.hero.bad .hero-card{color:#fff;background:color-mix(in srgb,var(--bad) 16%,#161618);
-  border:1px solid color-mix(in srgb,var(--bad) 40%,transparent);box-shadow:0 6px 18px rgba(0,0,0,.18)}
+/* 落後：主色同色系的暗色漸層（深→更深），沒有高光與彩色陰影；只有紅色警告標籤是亮的 */
+.hero.bad .hero-card{color:#fff;
+  background:linear-gradient(150deg,color-mix(in srgb,var(--pri) 42%,#0d0d10) 0%,color-mix(in srgb,var(--pri) 22%,#0a0a0c) 100%);
+  border:1px solid color-mix(in srgb,var(--pri) 30%,transparent);box-shadow:0 8px 20px rgba(0,0,0,.22)}
 .hero.bad .pill{background:var(--bad);color:#fff}
 /* 圓體數字（Apple 內建 ui-rounded；沒有的裝置用系統字） */
 .num-r,.hero .say b{font-family:ui-rounded,"SF Pro Rounded",-apple-system,BlinkMacSystemFont,"PingFang TC",sans-serif;font-variant-numeric:tabular-nums}
