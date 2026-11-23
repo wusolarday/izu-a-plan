@@ -242,3 +242,18 @@ test('款項狀況：從結算紀錄自動判斷，不用手動設定', () => {
   e1.status = 'cancelled'; assert.equal(E.eventState(s, e1).key, 'off'); assert.equal(E.eventState(s, e1).left, 0);
   e1.status = 'paid'; assert.equal(E.eventState(s, e1).key, 'done');
 });
+
+test('改款項金額：不能比已付少；剛好等於已付就算付清', () => {
+  const s = base(), e1 = s.events.find(e => e.id === 'e1');
+  settle(s, { date: '2026-12-21', cash: 792000, side: [{ amount: 3000 }], flows: [{ kind: 'event', eventId: 'e1', amount: -20000 }] });
+  e1.status = 'partial';
+  assert.deepEqual(E.statusAfterAmount(s, e1, 0), { ok: false, minimum: 20000 });
+  assert.deepEqual(E.statusAfterAmount(s, e1, 10000), { ok: false, minimum: 20000 });
+  assert.deepEqual(E.statusAfterAmount(s, e1, 20000), { ok: true, status: 'paid' });
+  assert.deepEqual(E.statusAfterAmount(s, e1, 60000), { ok: true, status: 'partial' });
+  // 就算資料裡已經是不合理的 0，畫面也不會顯示成「付了一部分 100%」
+  e1.amount = 0; assert.equal(E.eventState(s, e1).key, 'done');
+  const e2 = s.events.find(e => e.id === 'e2');
+  assert.deepEqual(E.statusAfterAmount(s, e2, 0), { ok: false, minimum: 1 });
+  assert.deepEqual(E.statusAfterAmount(s, e2, 250000), { ok: true, status: 'planned' });
+});

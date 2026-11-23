@@ -78,8 +78,18 @@ export const eventPaid = (state, ev, upTo = '9999-12-31') =>
  */
 export function eventState(state, ev) {
   const total = Math.abs(ev.amount), paid = Math.abs(eventPaid(state, ev)), left = Math.max(0, total - paid);
-  const key = ev.status === 'cancelled' ? 'off' : ev.status === 'paid' || (total && paid >= total) ? 'done' : paid ? 'partial' : 'todo';
+  const key = ev.status === 'cancelled' ? 'off' : ev.status === 'paid' || (paid > 0 && paid >= total) ? 'done' : paid ? 'partial' : 'todo';
   return { key, total, paid, left: key === 'todo' || key === 'partial' ? left : 0, income: ev.amount > 0 };
+}
+/**
+ * 改款項金額後，狀態要跟著變（只在金額有改時呼叫）。金額不能小於已付。
+ * 回傳 { ok, status } 或 { ok:false, minimum }
+ */
+export function statusAfterAmount(state, ev, newTotal) {
+  const paid = Math.abs(eventPaid(state, ev));
+  if (!(newTotal > 0) || newTotal < paid) return { ok: false, minimum: Math.max(paid, 1) };
+  if (ev.status === 'cancelled') return { ok: true, status: 'cancelled' };
+  return { ok: true, status: paid === 0 ? 'planned' : paid >= newTotal ? 'paid' : 'partial' };
 }
 /** 款項能不能刪：結算紀錄裡已經有它的付款就不能刪（會讓過去的紀錄對不上），只能改成「取消」 */
 export const canDeleteEvent = (state, ev) => !state.snapshots.some(s => (s.flows || []).some(f => f.eventId === ev.id));

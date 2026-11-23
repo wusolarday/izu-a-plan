@@ -458,7 +458,7 @@ function evCard(ev) {
   const action = st.key === 'todo' ? `<button class="danger" data-act="evdel">${ic('trash')}刪除這筆</button>`
     : st.key === 'partial' ? `<button class="danger" data-act="evdel">${ic('x')}剩下的不用付了</button>`
     : st.key === 'off' ? `<button data-act="evrestore">${ic('undo')}恢復成還要付</button>` : '';
-  return `<div class="card evcard ${st.key === 'off' ? 'dim' : ''}"><details><summary><div class="evsum"><b>${esc(ev.name)}${ev.estimate ? '<span class="tag">暫估</span>' : ''}</b>
+  return `<div class="card evcard ${st.key === 'off' ? 'dim' : ''}" id="evc-${ev.id}"><details><summary><div class="evsum"><b>${esc(ev.name)}${ev.estimate ? '<span class="tag">暫估</span>' : ''}</b>
       <span>${range(ev)}，${verb} ${about(st.total)}</span></div><span class="st st-${st.key}">${ic(icn)}${lbl}</span></summary>
     ${bar}
     <form data-ev="${ev.id}"><label>名稱</label><input name="name" value="${esc(ev.name)}">
@@ -642,7 +642,13 @@ const acts = {
   evsave: async el => {
     const form = el.closest('form'), f = new FormData(form), ev = S.events.find(x => x.id === form.dataset.ev);
     const before = JSON.stringify(ev);
-    const amt = Math.abs(num(f.get('amount')) || 0) * (f.get('dir') === 'in' ? 1 : -1);
+    const total = Math.abs(num(f.get('amount')) || 0), amt = total * (f.get('dir') === 'in' ? 1 : -1);
+    // 金額有改：不能比已付少；狀態跟著變（剛好付完＝付清了）
+    if (!(total > 0) || total !== Math.abs(ev.amount)) {
+      const r = E.statusAfterAmount(S, ev, total), paid = Math.abs(E.eventPaid(S, ev));
+      if (!r.ok) return showError(Object.assign(new Error(paid ? `已經付了 ${about(paid)}，金額不能比這個少。如果剩下的不用付了，請按下面的「剩下的不用付了」。` : '請填金額'), { at: 'evc-' + ev.id }));
+      ev.status = r.status;
+    }
     Object.assign(ev, { name: f.get('name'), amount: amt, dateFrom: f.get('dateFrom'), dateTo: f.get('dateTo') < f.get('dateFrom') ? f.get('dateFrom') : f.get('dateTo'), estimate: !!f.get('estimate') });
     await commit(`修改款項 ${ev.name}：${before} → ${JSON.stringify(ev)}`); render(); toast('已儲存');
   },
