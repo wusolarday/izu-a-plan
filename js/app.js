@@ -448,8 +448,26 @@ function history() {
 }
 
 // ---------- 計畫：我的計畫一頁看完 ----------
-const STATUS = { planned: '未付', partial: '部分付款', paid: '已付', cancelled: '取消' };
-const ST_ICON = { planned: 'clock', partial: 'half', paid: 'done', cancelled: 'x' };
+// 款項狀況：自動判斷，一律「圖示＋文字」
+const EV_ST = { todo: ['clock', '還沒付'], partial: ['half', '付了一部分'], done: ['done', '付清了'], off: ['x', '不用付了'] };
+function evCard(ev) {
+  const st = E.eventState(S, ev), [icn, lbl] = EV_ST[st.key], verb = st.income ? '會收到' : '要付';
+  const bar = st.paid && st.key !== 'done' ? `<div class="meter thin"><i style="width:${Math.min(100, st.paid / st.total * 100)}%"></i></div>
+    <p class="muted" style="margin:0">已付 ${about(st.paid)}${st.key === 'off' ? '，剩下的不用付了' : `，還剩 ${about(st.left)}`}</p>`
+    : st.key === 'done' && st.paid && st.paid !== st.total ? `<p class="muted" style="margin:10px 0 0">實際付了 ${about(st.paid)}（原本預估 ${about(st.total)}）</p>` : '';
+  const action = st.key === 'todo' ? `<button class="danger" data-act="evdel">${ic('trash')}刪除這筆</button>`
+    : st.key === 'partial' ? `<button class="danger" data-act="evdel">${ic('x')}剩下的不用付了</button>`
+    : st.key === 'off' ? `<button data-act="evrestore">${ic('undo')}恢復成還要付</button>` : '';
+  return `<div class="card evcard ${st.key === 'off' ? 'dim' : ''}"><details><summary><div class="evsum"><b>${esc(ev.name)}${ev.estimate ? '<span class="tag">暫估</span>' : ''}</b>
+      <span>${range(ev)}，${verb} ${about(st.total)}</span></div><span class="st st-${st.key}">${ic(icn)}${lbl}</span></summary>
+    ${bar}
+    <form data-ev="${ev.id}"><label>名稱</label><input name="name" value="${esc(ev.name)}">
+    <label>金額</label><div class="seg" style="margin-bottom:8px">${[['out', '要付出去'], ['in', '會收到']].map(([v, l]) => `<label class="segopt"><input type="radio" name="dir" value="${v}" ${(v === 'in') === st.income ? 'checked' : ''}>${l}</label>`).join('')}</div>
+    <input name="amount" inputmode="numeric" value="${st.total || ''}" placeholder="例如 50000">
+    <div class="inline"><div><label>最早</label><input type="date" name="dateFrom" value="${ev.dateFrom}"></div><div><label>最晚</label><input type="date" name="dateTo" value="${ev.dateTo}"></div></div>
+    <label class="opts"><input type="checkbox" name="estimate" ${ev.estimate ? 'checked' : ''}> 金額還是暫估的</label>
+    <div class="actions"><button class="pri" data-act="evsave">儲存</button>${action}</div></form></details></div>`;
+}
 let planEdit = null; // 計畫頁正在修改哪一項
 const ym = m => `${m.slice(0, 4)}/${+m.slice(5)}`;
 function plan() {
@@ -479,14 +497,7 @@ function plan() {
       <button class="switch ${i.active ? 'on' : ''}" role="switch" aria-checked="${i.active}" aria-label="${esc(i.name)}" data-act="sidetoggle" data-id="${i.id}"><i></i></button></div>`).join('')}</div>
     <details><summary>新增每月兼職</summary><div class="inline"><input id="sn" placeholder="名稱"><input id="sa" inputmode="numeric" placeholder="每月金額"></div>
     <div class="actions"><button class="small" data-act="sideadd">新增</button></div><p class="muted">單次收入在結算時新增就好。</p></details></div>
-  <h2>大筆款項</h2><p class="legend">${Object.entries(STATUS).map(([k, l]) => `<span class="st st-${k}">${ic(ST_ICON[k])}${l}</span>`).join('')}</p>${list.map(ev => `<div class="card"><details><summary><b>${esc(ev.name)}</b>　<span class="num">${range(ev)}，${sgn(ev.amount)}</span><span class="st st-${ev.status}" role="img" aria-label="${STATUS[ev.status]}" title="${STATUS[ev.status]}">${ic(ST_ICON[ev.status])}</span>${ev.estimate ? '<span class="tag">暫估</span>' : ''}</summary>
-    <form data-ev="${ev.id}"><label>名稱</label><input name="name" value="${esc(ev.name)}">
-    <label>金額（要付的寫負數，會收到的寫正數）</label><input name="amount" inputmode="numeric" value="${ev.amount}">
-    <div class="inline"><div><label>最早</label><input type="date" name="dateFrom" value="${ev.dateFrom}"></div><div><label>最晚</label><input type="date" name="dateTo" value="${ev.dateTo}"></div></div>
-    <label>狀態</label><select name="status">${Object.entries(STATUS).map(([v, l]) => `<option value="${v}" ${ev.status === v ? 'selected' : ''}>${l}</option>`).join('')}</select>
-    <label class="opts"><input type="checkbox" name="estimate" ${ev.estimate ? 'checked' : ''}> 金額還是暫估的</label>
-    <div class="muted">已付 ${fmt(-E.eventPaid(S, ev))}（從結算紀錄算出來）</div>
-    <div class="actions"><button class="pri" data-act="evsave">儲存</button><button class="danger" data-act="evdel">${ic('trash')}刪除</button></div></form></details></div>`).join('')}
+  <h2>大筆款項</h2><p class="muted" style="margin:-6px 0 4px">付了沒，每個月結算時回答就好，這裡會自動更新。</p>${list.map(evCard).join('')}
     <div class="actions"><button data-act="evadd">${ic('plus')}新增款項</button></div>
   <h2>至少要留的錢</h2><form class="card" id="resf"><p class="muted" style="margin:0">付完大筆款項後，帳戶裡至少要剩多少才安心（備用金）。</p>
     <input name="reserve" inputmode="numeric" value="${S.settings.reserve}"><div class="actions"><button class="pri" data-act="ressave">儲存</button></div></form>`;
@@ -619,20 +630,21 @@ const acts = {
     const paid = -E.eventPaid(S, ev), left = -E.eventRemaining(S, ev);
     if (ev.status === 'paid') return sheet(`<h3>「${name}」已經付清了</h3><p>付清的款項會留在紀錄裡，不需要刪除，也不用取消。</p>
       <div class="actions full col"><button class="pri" data-act="sheetClose">知道了</button></div>`);
-    if (!E.canDeleteEvent(S, ev)) return sheet(`<h3>「${name}」不能刪除</h3><p>已經付了 ${about(paid)}，結算紀錄裡有這筆，刪掉會讓過去的紀錄對不上。</p>
-      <p>如果剩下的不用付了，可以<b>改成取消</b>：</p><ul class="sheet-list"><li>已經付的 ${about(paid)} 是真的花掉了，<b>不會加回來</b></li><li>剩下的 ${about(left)} 不用再付，也不用再為它存錢</li><li>之後結算不會再問你付了沒</li></ul>
+    if (!E.canDeleteEvent(S, ev)) return sheet(`<h3>「${name}」剩下的不用付了？</h3><ul class="sheet-list"><li>已經付的 ${about(paid)} 是真的花掉了，<b>不會加回來</b></li><li>剩下的 ${about(left)} 不用再付，也不用再為它存錢</li><li>之後結算不會再問你付了沒，之後也可以恢復</li></ul>
       <p class="muted">如果對方退錢給你，下次結算時記在「有大筆的錢進來或出去」→「其他入帳（退款）」。</p>
-      <div class="actions full col"><button class="pri" data-act="evcancel" data-id="${ev.id}">改成取消</button><button class="plain" data-act="sheetClose">先不要</button></div>`);
-    sheet(`<h3>刪除「${name}」？</h3><p>這筆款項會從計畫裡拿掉，之後「應該要有的錢」和首頁的預估都會重新計算。</p>
+      <div class="actions full col"><button class="pri" data-act="evcancel" data-id="${ev.id}">對，剩下的不用付了</button><button class="plain" data-act="sheetClose">先不要</button></div>`);
+    sheet(`<h3>刪除「${name}」？</h3><p>這筆還沒付過錢，刪掉就是從計畫裡拿掉，之後「應該要有的錢」和首頁的預估都會重新計算。適合填錯了、或根本不需要這筆的時候。</p>
       <div class="actions full col"><button class="danger" data-act="evdelok" data-id="${ev.id}">${ic('trash')}刪除</button><button class="plain" data-act="sheetClose">先不要</button></div>`);
   },
   evdelok: async el => { const ev = S.events.find(x => x.id === el.dataset.id); S.events = S.events.filter(x => x !== ev); sheet(''); await commit(`刪除款項 ${ev.name}`); render(); toast('已刪除'); },
-  evcancel: async el => { const ev = S.events.find(x => x.id === el.dataset.id); ev.status = 'cancelled'; sheet(''); await commit(`取消款項 ${ev.name}`); render(); toast('已改成取消'); },
+  evrestore: async el => { const ev = S.events.find(x => x.id === el.closest('form').dataset.ev); ev.status = E.eventPaid(S, ev) ? 'partial' : 'planned'; await commit(`恢復款項 ${ev.name}`); render(); toast('已恢復成還要付'); },
+  evcancel: async el => { const ev = S.events.find(x => x.id === el.dataset.id); ev.status = 'cancelled'; sheet(''); await commit(`取消款項 ${ev.name}`); render(); toast('剩下的不用付了'); },
   evsave: async el => {
     const form = el.closest('form'), f = new FormData(form), ev = S.events.find(x => x.id === form.dataset.ev);
     const before = JSON.stringify(ev);
-    Object.assign(ev, { name: f.get('name'), amount: num(f.get('amount')) || 0, dateFrom: f.get('dateFrom'), dateTo: f.get('dateTo') < f.get('dateFrom') ? f.get('dateFrom') : f.get('dateTo'), status: f.get('status'), estimate: !!f.get('estimate') });
-    await commit(`修改事件 ${ev.name}：${before} → ${JSON.stringify(ev)}`); render();
+    const amt = Math.abs(num(f.get('amount')) || 0) * (f.get('dir') === 'in' ? 1 : -1);
+    Object.assign(ev, { name: f.get('name'), amount: amt, dateFrom: f.get('dateFrom'), dateTo: f.get('dateTo') < f.get('dateFrom') ? f.get('dateFrom') : f.get('dateTo'), estimate: !!f.get('estimate') });
+    await commit(`修改款項 ${ev.name}：${before} → ${JSON.stringify(ev)}`); render(); toast('已儲存');
   },
 };
 document.addEventListener('click', e => {

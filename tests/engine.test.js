@@ -233,3 +233,12 @@ test('取消款項：已付的部分仍算，只有沒付的部分不用再存',
   assert.equal(t.parts.reduce((a, x) => a + x[1], 0), t.diff);  // 差在哪裡仍然加得起來
   assert.equal(t.diff, 0);
 });
+
+test('款項狀況：從結算紀錄自動判斷，不用手動設定', () => {
+  const s = base(), e1 = s.events.find(e => e.id === 'e1');
+  assert.deepEqual(E.eventState(s, e1), { key: 'todo', total: 50000, paid: 0, left: 50000, income: false });
+  settle(s, { date: '2026-12-21', cash: 792000, side: [{ amount: 3000 }], flows: [{ kind: 'event', eventId: 'e1', amount: -20000 }] });
+  assert.equal(E.eventState(s, e1).key, 'partial'); assert.equal(E.eventState(s, e1).left, 30000);
+  e1.status = 'cancelled'; assert.equal(E.eventState(s, e1).key, 'off'); assert.equal(E.eventState(s, e1).left, 0);
+  e1.status = 'paid'; assert.equal(E.eventState(s, e1).key, 'done');
+});

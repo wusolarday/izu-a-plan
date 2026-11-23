@@ -71,6 +71,16 @@ export function planCompare(state, d) {
 /** 事件已付金額：唯一來源是結算紀錄裡 kind='event' 的流量 */
 export const eventPaid = (state, ev, upTo = '9999-12-31') =>
   sum(state.snapshots.filter(s => s.date <= upTo), s => sum((s.flows || []).filter(f => f.eventId === ev.id), f => f.amount));
+/**
+ * 款項現在的狀況（給畫面用，使用者不用自己設定狀態）：
+ * todo 還沒付｜partial 付了一部分｜done 付清了｜off 不用付了（取消）
+ * 金額一律回傳正數：total 總額、paid 已付、left 還剩
+ */
+export function eventState(state, ev) {
+  const total = Math.abs(ev.amount), paid = Math.abs(eventPaid(state, ev)), left = Math.max(0, total - paid);
+  const key = ev.status === 'cancelled' ? 'off' : ev.status === 'paid' || (total && paid >= total) ? 'done' : paid ? 'partial' : 'todo';
+  return { key, total, paid, left: key === 'todo' || key === 'partial' ? left : 0, income: ev.amount > 0 };
+}
 /** 款項能不能刪：結算紀錄裡已經有它的付款就不能刪（會讓過去的紀錄對不上），只能改成「取消」 */
 export const canDeleteEvent = (state, ev) => !state.snapshots.some(s => (s.flows || []).some(f => f.eventId === ev.id));
 export const isOpen = ev => ev.status !== 'paid' && ev.status !== 'cancelled';
