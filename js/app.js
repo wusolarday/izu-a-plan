@@ -45,7 +45,7 @@ const iconBtn = (name, label, attrs) => `<button class="icon-btn" aria-label="${
 const rows = list => `<table class="rows">${list.filter(Boolean).map(([a, b, cls]) => `<tr class="${cls || ''}"><td>${a}</td><td class="num">${b}</td></tr>`).join('')}</table>`;
 
 // 配色：色碼在 css/theme.css，這裡只列名稱。存在這台裝置（不進備份）
-const PALETTES = { ocean: '霧藍', lavender: '薰衣草', sage: '鼠尾草', coral: '珊瑚', graphite: '石墨' };
+const PALETTES = { ocean: '霧藍', lavender: '薰衣草', sage: '鼠尾草', coral: '珊瑚', wood: '胡桃木', graphite: '石墨' };
 const MODES = { auto: '跟著手機', light: '淺色', dark: '深色' };
 function setMode(m) {
   if (m === 'auto') delete document.documentElement.dataset.mode; else document.documentElement.dataset.mode = m;
@@ -96,6 +96,19 @@ function toast(msg) {
   const t = $('#toast'); t.textContent = msg; t.classList.add('on');
   clearTimeout(toastT); toastT = setTimeout(() => t.classList.remove('on'), 2200);
 }
+// 確認：用 App 自己的下方面板，回傳 Promise。input 有值時，回傳輸入的文字
+let askRes = null;
+function ask({ title, body = '', ok = '確定', danger = false, input = '' }) {
+  if (askRes) askRes(false);
+  return new Promise(res => {
+    askRes = res;
+    sheet(`<h3>${title}</h3>${body ? `<p>${body}</p>` : ''}${input ? `<input id="ask-in" placeholder="${input}" autocomplete="off">` : ''}
+      <div class="actions full col"><button class="${danger ? 'danger' : 'pri'}" data-act="askYes">${ok}</button><button class="plain" data-act="askNo">先不要</button></div>`);
+    $('#ask-in')?.focus();
+  });
+}
+function settleAsk(v) { const r = askRes; askRes = null; sheet(''); r?.(v); }
+const info = (title, body) => sheet(`<h3>${title}</h3><p>${body}</p><div class="actions full col"><button class="pri" data-act="sheetClose">知道了</button></div>`);
 // 從下方滑出的選擇面板
 function sheet(html) {
   const el = $('#sheet');
@@ -355,7 +368,7 @@ function showError(e) {
   document.querySelectorAll('.err-msg').forEach(x => x.remove());
   let card = e.at && document.getElementById(e.at);
   if (!card && e.at && D) { goStep(e.at); card = document.getElementById(e.at); }
-  if (!card) return alert(e.message);
+  if (!card) return toast(e.message);
   card.classList.add('err');
   card.insertAdjacentHTML('afterbegin', `<div class="err-msg" role="alert">${esc(e.message)}</div>`);
   card.scrollIntoView({ behavior: 'smooth', block: 'start' });
@@ -405,7 +418,7 @@ function showPreview() {
 }
 
 async function confirmSettle() {
-  if (preview?.early && !confirm('這次不是完整週期，確定要結算嗎？')) return;
+  if (preview?.early && !(await ask({ title: '這次不是完整的一個月', body: '距離上次結算不到一個月，這期的生活費會不準。確定要結算嗎？', ok: '還是要結算' }))) return;
   const snap = buildSnap(), applied = { events: [], plan: [], sideItems: [] };
   const q = E.questions(S, snap.date);
   for (const ev of q.events) {
@@ -425,19 +438,19 @@ async function confirmSettle() {
   S.snapshots.push(snap); S.draft = null; D = null; preview = null;
   await commit(`結算 ${snap.date}`);
   location.hash = '#home';
-  if (confirm('結算完成。現在備份到 iCloud 雲碟嗎？')) backup();
+  if (await ask({ title: '結算完成', body: '要現在備份到 iCloud 雲碟嗎？資料只在這台手機，備份比較安心。', ok: `${ic('cloud')}現在備份` })) backup();
 }
 
 async function undoLast() {
   const s = lastSnap();
-  if (s.start) return alert('起點不能撤回。');
-  if (!confirm(`撤回 ${ymd(s.date)} 的結算？資料會回到結算前，可重新填寫。`)) return;
+  if (s.start) return toast('還沒有結算可以撤回');
+  if (!(await ask({ title: `撤回 ${ymd(s.date)} 的結算？`, body: '資料會回到這次結算之前，那次回答的付款、計畫變更也會一起還原。之後可以重新結算。', ok: `${ic('undo')}撤回這次結算`, danger: true }))) return;
   for (const e of s.applied?.events || []) { const ev = S.events.find(x => x.id === e.id); if (ev) Object.assign(ev, e.prev); }
   for (const c of s.applied?.plan || []) S.plan[c.key] = S.plan[c.key].filter(x => x !== c.entry && JSON.stringify(x) !== JSON.stringify(c.entry));
   S.sideItems = S.sideItems.filter(i => !(s.applied?.sideItems || []).includes(i.id));
   S.snapshots.pop();
   await commit(`撤回結算 ${s.date}`);
-  render();
+  render(); toast(`已撤回 ${ymd(s.date)} 的結算`);
 }
 
 // ---------- 紀錄 ----------
@@ -554,13 +567,13 @@ async function importFile(file) {
       next = E.migrate(obj);
       const errs = E.validateState(next);
       if (errs.length) throw new Error(errs.join('、'));
-      if (!confirm(`還原備份：${next.snapshots.length - 1} 次結算、${next.events.length} 個事件，最後結算 ${next.snapshots.at(-1).date}。${S ? '會取代目前資料。' : ''}確定？`)) return;
+      if (!(await ask({ title: '從備份還原？', body: `備份裡有 ${next.snapshots.length - 1} 次結算、${next.events.length} 筆款項，最後一次結算是 ${ymd(next.snapshots.at(-1).date)}。${S ? '<b>會取代這台手機上目前的資料。</b>' : ''}`, ok: '還原', danger: !!S }))) return;
     } else {
       next = E.initFromSetup(obj);
-      if (!confirm(`匯入設定「${obj.name || ''}」：起點 ${obj.start.date}，現金 ${fmt(obj.start.cash)}。${S ? '會取代目前所有資料。' : ''}確定？`)) return;
+      if (!(await ask({ title: `匯入「${esc(obj.name || '設定檔')}」？`, body: `從 ${ymd(obj.start.date)} 開始，起點現金 ${fmt(obj.start.cash)}。${S ? '<b>會取代這台手機上目前的所有資料。</b>' : ''}`, ok: '匯入', danger: !!S }))) return;
     }
-    S = next; await commit('匯入'); location.hash = '#home'; render();
-  } catch (e) { alert('匯入失敗，原資料未變更：' + e.message); }
+    S = next; await commit('匯入'); location.hash = '#home'; render(); toast('已匯入');
+  } catch (e) { info('沒有匯入', `檔案有問題，原本的資料沒有改變。<br><span class="muted">${esc(e.message)}</span>`); }
 }
 
 // ---------- 事件委派 ----------
@@ -569,12 +582,14 @@ const acts = {
   demo: async () => { S = E.initFromSetup(await (await fetch('setup.example.json')).json()); await commit('試用範例'); render(); },
   backup, undo: undoLast,
   sbStart: async () => {
-    if (!confirm('開始測試模式？\n\n接下來整個 App 都在測試中：結算、改計畫都可以隨意試。\n結束時可以選擇全部丟掉，回到現在的樣子。')) return;
+    if (!(await ask({ title: '開始測試模式？', body: '接下來整個 App 都在測試中，結算、改計畫都可以隨意試。結束時可以選擇全部丟掉，回到現在的樣子。', ok: '開始測試' }))) return;
     await DB.save(S, 'sandbox'); sandbox = true; location.hash = '#home'; render(); toast('已進入測試模式');
   },
   sbAsk: () => sheet(`<h3>結束測試模式</h3><p>測試期間做的結算和修改，要怎麼處理？</p>
     <div class="actions full col"><button class="pri" data-act="sbEnd">全部丟掉，回到測試前</button><button data-act="sbKeep">保留，當成正式資料</button><button class="plain" data-act="sheetClose">繼續測試</button></div>`),
-  sheetClose: () => sheet(''),
+  sheetClose: () => { if (askRes) settleAsk(false); else sheet(''); },
+  askYes: () => settleAsk($('#ask-in') ? $('#ask-in').value.trim() : true),
+  askNo: () => settleAsk(false),
   sbEnd: async () => { S = await DB.load('sandbox'); D = null; preview = null; await DB.save(S); await DB.clear('sandbox'); sandbox = false; sheet(''); location.hash = '#home'; render(); toast('已回到測試前的資料'); },
   sbKeep: async () => { await DB.clear('sandbox'); sandbox = false; sheet(''); render(); toast('測試結果已保留'); },
   update: () => navigator.serviceWorker.getRegistration().then(r => r?.waiting?.postMessage('skip')),
@@ -602,10 +617,15 @@ const acts = {
   why: () => { const m = $('#more'), w = $('#why'); m.open = true; if (w) w.open = true; (w || m).scrollIntoView({ behavior: 'smooth', block: 'start' }); },
   open: el => { if (!document.getElementById(el.dataset.id)) goStep(el.dataset.id); const d = document.getElementById(el.dataset.id); d.open = true; d.scrollIntoView({ behavior: 'smooth' }); },
   addflow: () => { D.flows.push({ kind: 'income', amount: '', note: '' }); preview = null; settle(); },
-  discard: async () => { if (confirm('清除這次填的內容，從頭開始？')) { D = null; preview = null; S.draft = null; await commit(); settle(); } },
+  discard: async () => { if (await ask({ title: '清除這次填的內容？', body: '這次結算填到一半的內容會清掉，從第一題重新開始。', ok: '清除，重新開始', danger: true })) { D = null; preview = null; S.draft = null; await commit(); settle(); } },
   accsum: () => { D.cash = String(Object.values(D.acc).reduce((t, v) => t + (num(v) || 0), 0)); preview = null; settle(); },
   ics: () => shareFile('izu-a-plan-reminder.ics', E.makeIcs(S.settings.settleDay, today()), 'text/calendar'),
-  reset: async () => { if (prompt('輸入「清除」以刪除這台裝置上的全部 A計畫 資料（建議先備份）') === '清除') { await DB.clear(); S = null; render(); } },
+  reset: async () => {
+    const v = await ask({ title: '清除全部資料？', body: '會刪掉這台手機上的全部 A計畫 資料，<b>不能復原</b>。建議先備份。確定的話，請輸入「清除」。', ok: `${ic('trash')}清除全部資料`, danger: true, input: '輸入：清除' });
+    if (v === false) return;
+    if (v !== '清除') return toast('沒有清除：要輸入「清除」才會刪除');
+    await DB.clear(); S = null; render(); toast('已清除全部資料');
+  },
   daysave: async () => {
     const day = num(new FormData($('#dayf')).get('settleDay'));
     if (!(day >= 1 && day <= 28)) return toast('結算日請填 1～28');
@@ -701,8 +721,10 @@ if ('serviceWorker' in navigator) {
 }
 
 // ---------- 啟動 ----------
+let loadErr = null;
 (async () => {
-  try { const raw = await DB.load(); S = raw ? E.migrate(raw) : null; sandbox = !!(await DB.load('sandbox')); } catch (e) { alert('讀取資料失敗：' + e.message); }
+  try { const raw = await DB.load(); S = raw ? E.migrate(raw) : null; sandbox = !!(await DB.load('sandbox')); } catch (e) { loadErr = e.message; }
   DB.persist();
   render();
+  if (loadErr) info('讀不到資料', `請先不要新增資料，用「從備份還原」把最近的備份匯入。<br><span class="muted">${esc(loadErr)}</span>`);
 })();

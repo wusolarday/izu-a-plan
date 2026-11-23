@@ -129,7 +129,7 @@ button .ic,.btn .ic{margin:0 2px}
 .hero{margin:8px 0 12px}
 /* 主色漸層：左上較亮、右下較深，右上一點高光；文字用 on-pri（石墨深色模式會自動變深色字） */
 .hero-card{color:var(--on-pri);border-radius:22px;padding:18px 20px 18px;
-  background:radial-gradient(90% 80% at 100% 0%,color-mix(in srgb,var(--pri) 45%,#fff) 0%,transparent 60%),
+  background:var(--texture,none),radial-gradient(90% 80% at 100% 0%,color-mix(in srgb,var(--pri) 45%,#fff) 0%,transparent 60%),
              linear-gradient(150deg,color-mix(in srgb,var(--pri) 85%,#fff) 0%,var(--pri) 50%,color-mix(in srgb,var(--pri) 75%,#000) 100%);
   box-shadow:0 12px 28px color-mix(in srgb,var(--pri) 32%,transparent),inset 0 1px 0 rgba(255,255,255,.22)}
 .hero .when{color:inherit;opacity:.75;margin:0}
@@ -143,7 +143,7 @@ button .ic,.btn .ic{margin:0 2px}
 .hero.warn .pill{background:var(--surface);color:var(--warn-t)}
 /* 落後：主色同色系的暗色漸層（深→更深），沒有高光與彩色陰影；只有紅色警告標籤是亮的 */
 .hero.bad .hero-card{color:#fff;
-  background:linear-gradient(150deg,color-mix(in srgb,var(--pri) 42%,#0d0d10) 0%,color-mix(in srgb,var(--pri) 22%,#0a0a0c) 100%);
+  background:var(--texture,none),linear-gradient(150deg,color-mix(in srgb,var(--pri) 42%,#0d0d10) 0%,color-mix(in srgb,var(--pri) 22%,#0a0a0c) 100%);
   border:1px solid color-mix(in srgb,var(--pri) 30%,transparent);box-shadow:0 8px 20px rgba(0,0,0,.22)}
 .hero.bad .pill{background:var(--bad);color:#fff}
 /* 圓體數字（Apple 內建 ui-rounded；沒有的裝置用系統字） */
