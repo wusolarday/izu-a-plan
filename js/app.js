@@ -127,8 +127,8 @@ function home() {
   else if (hs.even) say = '你剛好照著計畫走';
   else say = `你比計畫${hs.diff > 0 ? '多' : '少'}存了約 <b>${about(hs.diff)}</b>`;
   if (hs.started && hs.event?.gap > 0) sub = `要注意：付完「${esc(hs.event.ev.name)}」後，錢會比至少要留的 ${about(S.settings.reserve)} 還少。`;
-  // 狀態色的柔光放在毛玻璃卡後面：還沒讀字，看顏色就知道狀況
-  h.push(`<section class="hero ${lv}"><div class="glow" aria-hidden="true"></div><div class="hero-card">
+  // 結論卡：狀態只用金額的顏色表示（不用光暈）
+  h.push(`<section class="hero ${lv}"><div class="hero-card">
     <p class="when">${ymd(last.date)} 結算後的狀況</p><p class="say">${say}</p>
     <p class="sub">${sub}${hs.started && lv !== 'good' ? ' <a href="#" data-act="why">看原因</a>' : ''}</p></div></section>`);
 

@@ -123,15 +123,11 @@ button .ic,.btn .ic{margin:0 2px}
 .segopt input{position:absolute;opacity:0;pointer-events:none}
 .segopt:has(input:checked){background:var(--surface);font-weight:600;box-shadow:0 1px 2px color-mix(in srgb,var(--ink) 20%,transparent)}
 
-/* ---- 首頁：狀態光暈＋毛玻璃結論卡 ---- */
-.hero{position:relative;isolation:isolate;margin:8px 0 16px;--glow:var(--good)}
+/* ---- 首頁：結論卡（狀態只用金額顏色） ---- */
+.hero{margin:8px 0 12px;--glow:var(--good)}
 .hero.warn{--glow:var(--warn)}.hero.bad{--glow:var(--bad)}.hero.none{--glow:var(--pri)}
 .hero.good,.hero.warn,.hero.bad,.hero.none{color:var(--ink)}
-.hero .glow{position:absolute;z-index:-1;inset:-28px -20px -24px;border-radius:48px;filter:blur(24px);opacity:1;
-  background:radial-gradient(60% 80% at 20% 40%,color-mix(in srgb,var(--glow) 85%,transparent),transparent 75%),
-             radial-gradient(50% 70% at 88% 75%,color-mix(in srgb,var(--glow) 60%,transparent),transparent 75%)}
-.hero-card{background:color-mix(in srgb,var(--surface) 50%,transparent);-webkit-backdrop-filter:blur(24px) saturate(170%);backdrop-filter:blur(24px) saturate(170%);
-  border-radius:24px;padding:16px 18px 18px;box-shadow:var(--shadow),inset 0 .5px 0 rgba(255,255,255,.55);border:.5px solid var(--hair)}
+.hero-card{background:var(--surface);border-radius:var(--r);padding:16px 18px 18px;box-shadow:var(--shadow)}
 .when{font-size:14px;color:var(--muted);margin:0 0 4px}
 .hero .say{font-size:28px;line-height:1.3;font-weight:700;margin:0;letter-spacing:-.01em}
 .hero .say b{white-space:nowrap;color:color-mix(in srgb,var(--glow) 70%,var(--ink))}
