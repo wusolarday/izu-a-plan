@@ -10,10 +10,8 @@
 [data-palette=coral]{--pri:#d4573e;--good:#5c9469;--warn:#d9a51e;--bad:#a8203f}
 [data-palette=wood]{--pri:#7a5232;--good:#5e8a4a;--warn:#d6a127;--bad:#b42a3c}
 [data-palette=salmon]{--pri:#dd6c53;--good:#3f8f7a;--warn:#d9a514;--bad:#a3193f;
-  /* 鮭魚：主色卡加上斜向、粗細間距不一的白色油花紋 */
-  --texture:repeating-linear-gradient(-34deg,transparent 0 13px,rgba(255,255,255,.16) 13px 15px,rgba(255,255,255,.06) 15px 17px,transparent 17px 29px),
-            repeating-linear-gradient(-30deg,transparent 0 31px,rgba(255,255,255,.12) 31px 34px,transparent 34px 47px),
-            repeating-linear-gradient(-38deg,transparent 0 53px,rgba(255,255,255,.09) 53px 55px,transparent 55px 71px)}
+  /* 鮭魚：主色卡右側三條 S 形曲線油花（參考鮭魚切片插畫） */
+  --texture:url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 140 180' fill='none' stroke='white' stroke-linecap='round'><path stroke-opacity='.42' stroke-width='9' d='M40 -10 C 78 25 18 62 58 100 S 48 160 78 195'/><path stroke-opacity='.34' stroke-width='8' d='M74 -10 C 112 25 52 62 92 100 S 82 160 112 195'/><path stroke-opacity='.26' stroke-width='7' d='M108 -10 C 146 25 86 62 126 100 S 116 160 146 195'/></svg>") right -18px center/auto 135% no-repeat}
 [data-palette=oak]{--pri:#b08657;--good:#5b8a4c;--warn:#e0a910;--bad:#b52a3a}
 [data-palette=olive]{--pri:#655a49;--good:#4f8a55;--warn:#d4a126;--bad:#b3303b}
 /* 木頭系：主色卡加上很淡的木紋（其他配色 --texture 為 none） */

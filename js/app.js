@@ -96,6 +96,23 @@ function toast(msg) {
   const t = $('#toast'); t.textContent = msg; t.classList.add('on');
   clearTimeout(toastT); toastT = setTimeout(() => t.classList.remove('on'), 2200);
 }
+// 正向回饋：撒金幣（只在真的值得慶祝的時候用；有開減少動態效果就只顯示文字）
+function celebrate(msg) {
+  if (msg) toast(msg);
+  if (matchMedia('(prefers-reduced-motion: reduce)').matches) return;
+  const box = document.createElement('div');
+  box.className = 'coins'; box.setAttribute('aria-hidden', 'true');
+  for (let i = 0; i < 28; i++) {
+    const c = document.createElement('i'), size = 14 + Math.random() * 14;
+    if (i % 4 === 0) c.className = 'spark';
+    c.style.cssText = `left:${Math.random() * 100}%;width:${size}px;height:${size}px;animation-delay:${Math.random() * 0.5}s;` +
+      `animation-duration:${1.4 + Math.random() * 0.9}s;--x:${(Math.random() - 0.5) * 90}px;--r:${Math.random() * 720 - 360}deg`;
+    box.appendChild(c);
+  }
+  document.body.appendChild(box);
+  setTimeout(() => box.remove(), 2900);
+}
+
 // 確認：用 App 自己的下方面板，回傳 Promise。input 有值時，回傳輸入的文字
 let askRes = null;
 function ask({ title, body = '', ok = '確定', danger = false, input = '' }) {
@@ -595,7 +612,11 @@ const acts = {
   update: () => navigator.serviceWorker.getRegistration().then(r => r?.waiting?.postMessage('skip')),
   calc: () => { try { calc(); } catch (e) { showError(e); } },
   confirm: () => confirmSettle().catch(showError),
-  ack: () => { D.ack = true; showPreview(); },
+  ack: () => {
+    D.ack = true; showPreview();
+    const saved = preview.p.budget - preview.p.E;
+    if (saved > 0) celebrate(`省下約 ${about(saved)}，做得好！`);
+  },
   fixknown: () => { D.carry = false; D.fix ??= { kind: 'otherIn', amount: '' }; showPreview(); $('[data-k="fix.amount"]').focus(); },
   fixadd: () => {
     const v = num(D.fix?.amount);
