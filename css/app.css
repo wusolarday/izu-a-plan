@@ -100,6 +100,25 @@ h3{font-size:17px;margin:0 0 6px}
 .plain-list li{display:flex;justify-content:space-between;align-items:center;gap:8px;padding:8px 0;border-top:1px solid var(--line)}
 .plain-list li:first-child{border-top:0}
 
+/* 圖示 */
+.ic{width:20px;height:20px;flex:none;stroke:currentColor;fill:none;stroke-width:2;stroke-linecap:round;stroke-linejoin:round}
+button .ic,.btn .ic{margin:0 2px}
+.icon-btn{width:44px;min-width:44px;height:44px;min-height:44px;padding:0;border-radius:50%;border-color:var(--line);color:var(--pri-t)}
+.icon-btn .ic{margin:0}
+.chip{display:inline-flex;align-items:center;gap:3px}
+.chip .ic{width:15px;height:15px;stroke-width:2.6}
+.chip.only{padding:3px;border-radius:50%}
+.chip.in-text{vertical-align:-4px;margin-right:2px}
+.st{display:inline-flex;align-items:center;gap:4px;color:var(--muted);vertical-align:-5px;margin-left:6px}
+.st-paid{color:var(--good-t)}.st-partial{color:var(--warn-t)}
+.legend{display:flex;flex-wrap:wrap;gap:4px 14px;font-size:14px;margin:-6px 0 4px}
+.legend .st{margin:0;vertical-align:0}.legend .ic{width:17px;height:17px}
+/* 開關：像 iPhone 設定裡的 */
+.switch{width:52px;min-width:52px;height:32px;min-height:32px;padding:0;border:0;border-radius:99px;background:var(--line);position:relative;transition:background .2s}
+.switch i{position:absolute;top:3px;left:3px;width:26px;height:26px;border-radius:50%;background:#fff;box-shadow:0 1px 3px rgba(0,0,0,.25);transition:transform .2s}
+.switch.on{background:var(--good)}.switch.on i{transform:translateX(20px)}
+.switch:active:not(:disabled){transform:none}
+
 /* ---- 表單 ---- */
 label{display:block;margin:12px 0 4px;font-size:15px;color:var(--muted)}
 input,select{width:100%;font:inherit;font-size:18px;padding:12px;border:1px solid var(--line);border-radius:12px;background:var(--surface);color:var(--ink)}

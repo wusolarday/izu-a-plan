@@ -21,6 +21,27 @@ const lastSnap = () => S.snapshots[S.snapshots.length - 1];
 const uid = p => p + Date.now().toString(36) + Math.random().toString(36).slice(2, 5);
 const num = v => (v === '' || v == null ? null : Math.round(Number(String(v).replace(/,/g, ''))));
 const tol = () => S.settings.tolerance;
+// 圖示：線條 24×24，跟著文字顏色。只用大家一看就懂的（勾、鉛筆、回復、雲…）
+const ICON = {
+  check: '<path d="M5 12.5l4.5 4.5L19 7.5"/>',
+  pencil: '<path d="M4 20h4L19 9l-4-4L4 16v4z"/><path d="M13.5 6.5l4 4"/>',
+  undo: '<path d="M9 14L4 9l5-5"/><path d="M4 9h10a6 6 0 010 12h-3"/>',
+  warn: '<path d="M12 3.5l9 16H3l9-16z"/><path d="M12 10v4"/><path d="M12 17v.01"/>',
+  clock: '<circle cx="12" cy="12" r="8.5"/><path d="M12 7.5V12l3 2"/>',
+  half: '<circle cx="12" cy="12" r="8.5"/><path d="M12 3.5a8.5 8.5 0 010 17z" fill="currentColor" stroke="none"/>',
+  done: '<circle cx="12" cy="12" r="8.5"/><path d="M8 12.3l2.8 2.8L16 9.5"/>',
+  x: '<circle cx="12" cy="12" r="8.5"/><path d="M9 9l6 6M15 9l-6 6"/>',
+  cloud: '<path d="M7 18a4.5 4.5 0 01-.6-8.96A6 6 0 0118 10.5a3.75 3.75 0 01-.5 7.5"/><path d="M12 12v8M9 15l3-3 3 3"/>',
+  restore: '<path d="M12 4v11M7 10l5 5 5-5"/><path d="M5 20h14"/>',
+  calendar: '<rect x="3.5" y="5" width="17" height="15.5" rx="2"/><path d="M3.5 10h17M8 3v4M16 3v4"/>',
+  plus: '<path d="M12 5v14M5 12h14"/>',
+  trash: '<path d="M4 7h16M9.5 7V4.5h5V7M6.5 7l1 13h9l1-13"/>',
+  left: '<path d="M15 5l-7 7 7 7"/>',
+  right: '<path d="M9 5l7 7-7 7"/>',
+};
+const ic = n => `<svg class="ic" viewBox="0 0 24 24" aria-hidden="true">${ICON[n]}</svg>`;
+// 只有圖示的按鈕：一定要有給讀屏用的文字
+const iconBtn = (name, label, attrs) => `<button class="icon-btn" aria-label="${label}" title="${label}" ${attrs}>${ic(name)}</button>`;
 const rows = list => `<table class="rows">${list.filter(Boolean).map(([a, b, cls]) => `<tr class="${cls || ''}"><td>${a}</td><td class="num">${b}</td></tr>`).join('')}</table>`;
 
 // 配色：色碼在 css/theme.css，這裡只列名稱。存在這台裝置（不進備份）
@@ -109,9 +130,9 @@ function home() {
 
   // 1. 要做的事：只在真的需要時出現
   const todo = [], due = hs.daysLeft <= 0;
-  if (due) todo.push(`<div class="row"><div class="what"><b>${hs.daysLeft === 0 ? '今天要結算' : '該結算了'}</b><span>打開網銀看總額，大約 3 分鐘</span></div><a class="btn pri small" href="#settle">開始結算</a></div>`);
+  if (due) todo.push(`<div class="row"><div class="what"><b>${hs.daysLeft === 0 ? '今天要結算' : '該結算了'}</b><span>打開網銀看總額，大約 3 分鐘</span></div><a class="btn pri small" href="#settle">開始結算${ic('right')}</a></div>`);
   const lb = S.lastBackup, ago = lb ? Math.floor((Date.now() - Date.parse(lb)) / 864e5) : null;
-  if (ago == null || ago > 35) todo.push(`<div class="row"><div class="what"><b>${lb ? `上次備份是 ${ago} 天前` : '還沒有備份過'}</b><span>資料只在這台手機，備份到 iCloud 雲碟比較安心</span></div><button class="pri small" data-act="backup">備份</button></div>`);
+  if (ago == null || ago > 35) todo.push(`<div class="row"><div class="what"><b>${lb ? `上次備份是 ${ago} 天前` : '還沒有備份過'}</b><span>資料只在這台手機，備份到 iCloud 雲碟比較安心</span></div><button class="pri small" data-act="backup">${ic('cloud')}備份</button></div>`);
   if (todo.length) h.push(`<section class="card todo"><h3>要做的事</h3>${todo.join('')}</section>`);
 
   // 2. 生活費：先講接下來可以花多少，再看上一期花了多少
@@ -141,14 +162,14 @@ function home() {
   if (show.length) {
     const li = show.map(ev => {
       const o = E.eventOutlook(S, ev), left = -E.eventRemaining(S, ev);
-      const chip = ev.selfFund && o.gap ? `<span class="chip warn">還差 ${about(o.gap)}</span>` : o.gap ? `<span class="chip bad">差 ${about(o.gap)}</span>` : '<span class="chip good">夠</span>';
+      const chip = ev.selfFund && o.gap ? `<span class="chip warn">${ic('warn')}還差 ${about(o.gap)}</span>` : o.gap ? `<span class="chip bad">${ic('warn')}差 ${about(o.gap)}</span>` : `<span class="chip good only" role="img" aria-label="夠" title="夠">${ic('check')}</span>`;
       const note = ev.selfFund && o.gap ? `每次結算多存約 ${about(o.perSettle)}` : `${range(ev).slice(5)} 付`;
       return `<li class="sched"><div class="mo"><b>${+ev.dateFrom.slice(5, 7)}月</b><span>${ev.dateFrom.slice(0, 4)}</span></div>
         <div class="nm"><b>${esc(ev.name)}${ev.estimate ? '<span class="tag">暫估</span>' : ''}</b><span>${note}</span></div>
         <div class="amt"><b>${left < 0 ? '＋' : ''}${about(left)}</b>${chip}</div></li>`;
     }).join('');
     h.push(`<section class="card"><h3>接下來的大筆款項</h3><ul class="sched-list">${li}</ul>
-      <p class="muted" style="margin:8px 0 0">「夠」＝付完還留得住至少要留的 ${about(S.settings.reserve)}。</p><p style="margin:4px 0 0;text-align:right"><a href="#plan">看全部款項</a></p></section>`);
+      <p class="muted" style="margin:8px 0 0"><span class="chip good only in-text">${ic('check')}</span> 付完還留得住至少要留的 ${about(S.settings.reserve)}</p><p style="margin:4px 0 0;text-align:right"><a href="#plan">看全部款項</a></p></section>`);
   }
   h.push(detailHtml(last));
   app.innerHTML = h.join('');
@@ -243,7 +264,7 @@ function settleSteps() {
       <div class="opts">${radio('salaryScope', 'once', '只有這次（請假等）')}${radio('salaryScope', 'after', '以後都是（調薪等）')}</div></details>
     <details ${D.flows.length ? 'open' : ''} id="d-flows"><summary>有大筆的錢進來或出去</summary><p class="muted" style="margin:0">例如家人給的錢、退款、買股票、押金。平常的生活花費不用寫。</p>${D.flows.map((f, i) => `<div class="inline"><select data-k="flows.${i}.kind">${Object.entries(FLOW).map(([v, [l]]) => `<option value="${v}" ${f.kind === v ? 'selected' : ''}>${l}</option>`).join('')}</select>
       <input inputmode="numeric" placeholder="金額" ${field(`flows.${i}.amount`)}></div><div class="echo" data-echo="flows.${i}.amount">${echo(`flows.${i}.amount`)}</div><input placeholder="備註（選填）" ${field(`flows.${i}.note`)}>`).join('<hr>')}
-      <div class="actions"><button class="small" data-act="addflow">新增一筆</button></div></details></div>` });
+      <div class="actions"><button class="small" data-act="addflow">${ic('plus')}新增一筆</button></div></details></div>` });
   steps.push({ ids: ['result'], html: `${ask('這個月的結果')}<div id="preview"></div><div class="hint" id="cf-hint"></div>` });
   return steps;
 }
@@ -256,12 +277,12 @@ function settle() {
   const steps = settleSteps(), n = steps.length;
   D.step = Math.max(0, Math.min(D.step, n - 1));
   const i = D.step, isResult = i === n - 1, beforeResult = i === n - 2;
-  app.innerHTML = `<div class="flowbar"><a href="#home">← 回首頁</a><span>第 ${i + 1} 步，共 ${n} 步</span></div>
+  app.innerHTML = `<div class="flowbar"><a href="#home">${ic('left')}首頁</a><span>第 ${i + 1} 步，共 ${n} 步</span></div>
     <div class="steps" aria-hidden="true">${steps.map((_, j) => `<i class="${j <= i ? 'on' : ''}"></i>`).join('')}</div>
     ${steps[i].html}
     ${i === 0 ? '<p style="text-align:center"><button class="plain small" data-act="discard">清除這次填的內容</button></p>' : ''}
-    <div class="stepnav">${i > 0 ? '<button data-act="back">上一步</button>' : '<span></span>'}
-      ${isResult ? '<button class="pri" data-act="confirm" disabled>確認結算</button>' : `<button class="pri" data-act="next">${beforeResult ? '看結果' : '下一步'}</button>`}</div>`;
+    <div class="stepnav">${i > 0 ? `<button data-act="back">${ic('left')}上一步</button>` : '<span></span>'}
+      ${isResult ? '<button class="pri" data-act="confirm" disabled>確認結算</button>' : `<button class="pri" data-act="next">${beforeResult ? '看結果' : '下一步'}${ic('right')}</button>`}</div>`;
   if (isResult) { if (!preview) { try { calc(); return; } catch (e) { return showError(e); } } showPreview(); }
 }
 
@@ -421,11 +442,12 @@ function history() {
     ${rows([['生活費', livingText(p) + ' / ' + fmt(p.budget)], p.merged ? ['合併計算', `${p.merged} 次結算`] : null, ['兼職', fmt(p.actSide) + ' / ' + fmt(p.planSide)], p.salaryDiff ? ['薪資差異', sgn(p.salaryDiff)] : null,
       p.actBonus ? ['年終', fmt(p.actBonus)] : null, ...p.flows.map(f => f.kind === 'unknownIn' ? ['找不到來源的錢', '金額不明'] : [f.kind === 'event' ? esc(S.events.find(e => e.id === f.eventId)?.name) : (FLOW[f.kind]?.[0] || f.kind) + (f.note ? '・' + esc(f.note) : ''), sgn(f.amount)])])}</div>`).join('')}
     <div class="card muted">起點 ${ymd(S.snapshots[0].date)}・現金 ${fmt(S.snapshots[0].cash)}</div>
-    ${S.snapshots.length > 1 ? '<div class="actions"><button class="danger" data-act="undo">撤回最近一次結算</button></div>' : ''}`;
+    ${S.snapshots.length > 1 ? `<div class="actions"><button class="danger" data-act="undo">${ic('undo')}撤回最近一次結算</button></div>` : ''}`;
 }
 
 // ---------- 計畫：我的計畫一頁看完 ----------
 const STATUS = { planned: '未付', partial: '部分付款', paid: '已付', cancelled: '取消' };
+const ST_ICON = { planned: 'clock', partial: 'half', paid: 'done', cancelled: 'x' };
 let planEdit = null; // 計畫頁正在修改哪一項
 const ym = m => `${m.slice(0, 4)}/${+m.slice(5)}`;
 function plan() {
@@ -434,7 +456,7 @@ function plan() {
   const prow = k => {
     const d = E.PLAN_KEYS[k], changed = cur[k] !== orig[k];
     const head = `<div class="prow"><div class="pl"><b>${d.label}</b><span>${when[k]}</span></div><div class="pv"><b class="num">${fmt(cur[k])}</b>${changed ? `<span>原本 ${fmt(orig[k])}</span>` : ''}</div>
-      ${planEdit === k ? '' : `<button class="small" data-act="pedit" data-key="${k}">改</button>`}</div>`;
+      ${planEdit === k ? '' : iconBtn('pencil', '改' + d.label, `data-act="pedit" data-key="${k}"`)}</div>`;
     if (planEdit !== k) return head;
     return head + `<div class="pedit"><label>改成多少</label><input id="pe-amt" inputmode="numeric" value="${cur[k]}">
       <label>從哪個月開始</label><input id="pe-from" type="month" min="${fm}" value="${fm}">
@@ -450,12 +472,12 @@ function plan() {
   <section class="card"><h3>每個月的收入</h3>${prow('salary')}${prow('side')}${prow('bonus')}</section>
   <section class="card"><h3>每個月的支出</h3>${prow('living')}${loans}</section>
   ${cmp ? `<section class="card"><h3>跟原本的計畫比</h3><p style="margin:0">照現在的計畫，到 ${ymd(cmp.date)} 會比原本<b class="${cmp.diff >= 0 ? 'good' : 'bad'}">${cmp.diff >= 0 ? '多' : '少'}存約 ${about(cmp.diff)}</b>。</p>
-    <details><summary>改過哪些地方</summary><ul class="plain-list">${hist.map(({ k, d, c }) => `<li><span>${ym(c.from)} 起，${d.label}改成 <b class="num">${fmt(c.amount)}</b></span>${c.from >= fm ? `<button class="small" data-act="pundo" data-key="${k}" data-from="${c.from}">撤回</button>` : '<span class="muted">已生效</span>'}</li>`).join('')}</ul></details></section>` : ''}
+    <details><summary>改過哪些地方</summary><ul class="plain-list">${hist.map(({ k, d, c }) => `<li><span>${ym(c.from)} 起，${d.label}改成 <b class="num">${fmt(c.amount)}</b></span>${c.from >= fm ? iconBtn('undo', '撤回這個修改', `data-act="pundo" data-key="${k}" data-from="${c.from}"`) : '<span class="muted">已生效</span>'}</li>`).join('')}</ul></details></section>` : ''}
   <div class="card"><h3>兼職項目</h3><div class="list">${S.sideItems.map(i => `<div class="item"><span>${esc(i.name)}<span class="muted">　${i.kind === 'monthly' ? `每月 ${fmt(i.amount)}` : '單次'}${i.active ? '' : '，已停用'}</span></span>
-      <button class="small" data-act="sidetoggle" data-id="${i.id}">${i.active ? '停用' : '啟用'}</button></div>`).join('')}</div>
+      <button class="switch ${i.active ? 'on' : ''}" role="switch" aria-checked="${i.active}" aria-label="${esc(i.name)}" data-act="sidetoggle" data-id="${i.id}"><i></i></button></div>`).join('')}</div>
     <details><summary>新增每月兼職</summary><div class="inline"><input id="sn" placeholder="名稱"><input id="sa" inputmode="numeric" placeholder="每月金額"></div>
     <div class="actions"><button class="small" data-act="sideadd">新增</button></div><p class="muted">單次收入在結算時新增就好。</p></details></div>
-  <h2>大筆款項</h2>${list.map(ev => `<div class="card"><details><summary><b>${esc(ev.name)}</b>　<span class="num">${range(ev)}，${sgn(ev.amount)}</span><span class="tag">${STATUS[ev.status]}</span>${ev.estimate ? '<span class="tag">暫估</span>' : ''}</summary>
+  <h2>大筆款項</h2><p class="legend">${Object.entries(STATUS).map(([k, l]) => `<span class="st st-${k}">${ic(ST_ICON[k])}${l}</span>`).join('')}</p>${list.map(ev => `<div class="card"><details><summary><b>${esc(ev.name)}</b>　<span class="num">${range(ev)}，${sgn(ev.amount)}</span><span class="st st-${ev.status}" role="img" aria-label="${STATUS[ev.status]}" title="${STATUS[ev.status]}">${ic(ST_ICON[ev.status])}</span>${ev.estimate ? '<span class="tag">暫估</span>' : ''}</summary>
     <form data-ev="${ev.id}"><label>名稱</label><input name="name" value="${esc(ev.name)}">
     <label>金額（要付的寫負數，會收到的寫正數）</label><input name="amount" inputmode="numeric" value="${ev.amount}">
     <div class="inline"><div><label>最早</label><input type="date" name="dateFrom" value="${ev.dateFrom}"></div><div><label>最晚</label><input type="date" name="dateTo" value="${ev.dateTo}"></div></div>
@@ -463,7 +485,7 @@ function plan() {
     <label class="opts"><input type="checkbox" name="estimate" ${ev.estimate ? 'checked' : ''}> 金額還是暫估的</label>
     <div class="muted">已付 ${fmt(-E.eventPaid(S, ev))}（從結算紀錄算出來）</div>
     <div class="actions"><button class="pri" data-act="evsave">儲存</button></div></form></details></div>`).join('')}
-    <div class="actions"><button data-act="evadd">新增款項</button></div>
+    <div class="actions"><button data-act="evadd">${ic('plus')}新增款項</button></div>
   <h2>至少要留的錢</h2><form class="card" id="resf"><p class="muted" style="margin:0">付完大筆款項後，帳戶裡至少要剩多少才安心（備用金）。</p>
     <input name="reserve" inputmode="numeric" value="${S.settings.reserve}"><div class="actions"><button class="pri" data-act="ressave">儲存</button></div></form>`;
 }
@@ -475,10 +497,10 @@ function settings() {
     <div class="card"><h3>外觀</h3><div class="swatches">${Object.entries(PALETTES).map(([k, n]) => `<button class="swatch ${pal === k ? 'on' : ''}" data-act="palette" data-p="${k}" data-palette="${k}" aria-pressed="${pal === k}"><i></i>${n}</button>`).join('')}</div>
       <label>深色／淺色</label><div class="seg">${Object.entries(MODES).map(([k, n]) => `<button class="${(document.documentElement.dataset.mode || 'auto') === k ? 'on' : ''}" data-act="mode" data-m="${k}" aria-pressed="${(document.documentElement.dataset.mode || 'auto') === k}">${n}</button>`).join('')}</div></div>
     <form class="card" id="dayf"><h3>提醒</h3><label>每個月幾號結算</label><input name="settleDay" inputmode="numeric" value="${st.settleDay}">
-      <div class="actions"><button class="pri" data-act="daysave">儲存</button><button data-act="ics">加到手機行事曆</button></div>
+      <div class="actions"><button class="pri" data-act="daysave">儲存</button><button data-act="ics">${ic('calendar')}加到手機行事曆</button></div>
       <p class="muted">改了日期之後，要重新加一次行事曆，並刪掉舊的。</p></form>
     <div class="card"><h3>備份與資料</h3><p style="margin:0">上次備份：${S.lastBackup ? S.lastBackup.slice(0, 10) : '還沒有'}</p>
-      <div class="actions"><button class="pri" data-act="backup">備份到 iCloud 雲碟</button><button data-act="import">從備份還原</button></div>
+      <div class="actions"><button class="pri" data-act="backup">${ic('cloud')}備份到 iCloud 雲碟</button><button data-act="import">${ic('restore')}從備份還原</button></div>
       <p class="muted">資料只在這台手機，不會上傳。<span id="pst"></span></p></div>
     <div class="card"><h3>測試模式</h3>${sandbox
       ? '<p style="margin:0">現在<b>正在測試</b>。整個 App 都有斜紋外框時，就是在測試。</p><div class="actions"><button class="pri" data-act="sbAsk">結束測試</button></div>'
@@ -488,7 +510,7 @@ function settings() {
       <label>生活費跟預算差多少，結算時要問我（元）</label><input name="askThreshold" inputmode="numeric" value="${st.askThreshold}">
       <label>股票賣掉，大概能拿回幾成（0～1，例如 0.8＝八成）</label><input name="stockHaircut" inputmode="decimal" value="${st.stockHaircut}">
       <div class="actions"><button class="pri" data-act="rulesave">儲存</button></div></form></details>
-    <div class="card danger-zone"><h3>清除資料</h3><p class="muted" style="margin:0">刪掉這台手機上的全部 A計畫 資料。建議先備份。</p><div class="actions"><button class="danger" data-act="reset">清除全部資料</button></div></div>
+    <div class="card danger-zone"><h3>清除資料</h3><p class="muted" style="margin:0">刪掉這台手機上的全部 A計畫 資料。建議先備份。</p><div class="actions"><button class="danger" data-act="reset">${ic('trash')}清除全部資料</button></div></div>
     <p class="muted" style="text-align:center">版本 ${VERSION}</p>`;
   navigator.storage?.persisted?.().then(v => { const e = $('#pst'); if (e) e.textContent = v ? '' : '（手機可能會在空間不足時清掉資料，記得備份）'; });
 }
