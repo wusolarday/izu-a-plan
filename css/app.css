@@ -280,15 +280,16 @@ button.plain{border-color:transparent}
 @keyframes sheet-out{to{transform:translateY(100%);filter:blur(6px)}}
 @keyframes fade-in{from{opacity:0}}
 @keyframes fade-out{to{opacity:0}}
-/* 撒金幣 */
-.coins{position:fixed;inset:0;pointer-events:none;z-index:60;overflow:hidden}
-.coins i{position:absolute;top:-40px;border-radius:50%;
-  background:radial-gradient(circle at 35% 30%,#fff7cf 0 16%,#f5c84a 38%,#d39a1f 72%,#a9761a 100%);
-  box-shadow:inset 0 0 0 2px rgba(255,255,255,.35),0 2px 4px rgba(0,0,0,.18);
-  animation:coin-fall cubic-bezier(.45,.05,.75,.6) forwards}
-.coins i.spark{width:6px!important;height:12px!important;border-radius:2px;background:#ffe27a;box-shadow:none}
-@keyframes coin-fall{0%{transform:translate(0,0) rotateY(0) rotate(0);opacity:1}85%{opacity:1}
-  100%{transform:translate(var(--x),110vh) rotateY(720deg) rotate(var(--r));opacity:0}}
+/* 彩紙爆發與小動畫 */
+.confetti{position:fixed;inset:0;width:100vw;height:100vh;pointer-events:none;z-index:60}
+#toast{display:inline-flex;align-items:center;gap:6px}#toast .ic{width:18px;height:18px;color:#ffd84d}
+.hero-card{position:relative}
+.hero-card.recover::after{content:"";position:absolute;inset:0;border-radius:inherit;pointer-events:none;
+  background:linear-gradient(150deg,color-mix(in srgb,var(--pri) 42%,#0d0d10),color-mix(in srgb,var(--pri) 22%,#0a0a0c));animation:fade-out 1.4s .2s ease forwards}
+.chip.flash{animation:chip-flash 1.6s ease 2}
+@keyframes chip-flash{0%,100%{box-shadow:0 0 0 0 transparent}40%{box-shadow:0 0 0 6px color-mix(in srgb,var(--good) 35%,transparent)}}
+.st.pop .ic{animation:st-pop .7s cubic-bezier(.2,.8,.2,1.4) .3s both}
+@keyframes st-pop{0%{transform:scale(.4)}60%{transform:scale(1.35)}100%{transform:scale(1)}}
 @media (prefers-reduced-motion:reduce){*{scroll-behavior:auto!important}.ring .val{animation:none}
   .sheet-box{animation:fade-in .2s}#sheet.out .sheet-box{animation:fade-out .2s forwards}button:active,.btn:active{transform:none}}
 @media (prefers-reduced-transparency:reduce){

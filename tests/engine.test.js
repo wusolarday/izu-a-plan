@@ -257,3 +257,20 @@ test('改款項金額：不能比已付少；剛好等於已付就算付清', ()
   assert.deepEqual(E.statusAfterAmount(s, e2, 0), { ok: false, minimum: 1 });
   assert.deepEqual(E.statusAfterAmount(s, e2, 250000), { ok: true, status: 'planned' });
 });
+
+test('值得慶祝的事：第一次、照計畫、付清、從落後追上、連續月數', () => {
+  const s0 = base();
+  const s1 = settle(structuredClone(s0), { date: '2026-12-21', cash: 762000, side: [{ amount: 3000 }], flows: [{ kind: 'event', eventId: 'e1', amount: -50000 }] });
+  s1.events.find(e => e.id === 'e1').status = 'paid';
+  let a = E.achievements(s0, s1, '2026-12-22').map(x => x.key);
+  assert.deepEqual(a, ['first', 'paid', 'onTrack']);
+  // 下一期落後 → 沒有要慶祝的
+  const s2 = settle(structuredClone(s1), { date: '2027-01-21', cash: 740000, side: [{ amount: 3000 }] });
+  assert.deepEqual(E.achievements(s1, s2, '2027-01-22'), []);
+  assert.equal(E.streak(s2), 0);
+  // 再下一期追上 → recovered（不重複給 onTrack）
+  const s3 = settle(structuredClone(s2), { date: '2027-02-21', cash: 740000 + 47000 + 70000 + 30000, side: [{ amount: 3000 }], bonus: [{ year: 2027, amount: 70000 }] });
+  const k = E.achievements(s2, s3, '2027-02-22').map(x => x.key);
+  assert.ok(k.includes('recovered')); assert.ok(!k.includes('onTrack'));
+  assert.equal(E.streak(s3), 1);
+});

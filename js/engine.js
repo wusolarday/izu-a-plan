@@ -259,6 +259,38 @@ export function homeSummary(state, today) {
     nextDate, daysLeft, nextBudget, event: ev ? { ev, remaining: -eventRemaining(state, ev), ...o } : null };
 }
 
+/** 連續幾次結算都照計畫（差額在容許內或超前），從最近一次往回數 */
+export function streak(state) {
+  const tol = state.settings.tolerance; let n = 0;
+  for (let i = state.snapshots.length - 1; i >= 1; i--) {
+    if (standing({ ...state, snapshots: state.snapshots.slice(0, i + 1) }).diff < -tol) break;
+    n++;
+  }
+  return n;
+}
+
+/**
+ * 結算前後比較，找出值得慶祝的事（給畫面放正向回饋用）。依重要程度排序。
+ * recovered 從落後追上｜streak 連續 3/6/12 個月｜first 第一次結算｜selfFund 自備款變夠｜paid 款項付清｜onTrack 這期照計畫
+ */
+export function achievements(before, after, today) {
+  const out = [], hb = homeSummary(before, today), ha = homeSummary(after, today);
+  if (hb.started && hb.level !== 'good' && ha.level === 'good') out.push({ key: 'recovered' });
+  const sb = streak(before), sa = streak(after);
+  if ([3, 6, 12].includes(sa) && sa > sb) out.push({ key: 'streak', n: sa });
+  if (before.snapshots.length === 1) out.push({ key: 'first' });
+  for (const ev of after.events.filter(e => e.selfFund && isOpen(e))) {
+    const evb = before.events.find(x => x.id === ev.id);
+    if (evb && eventOutlook(before, evb).gap > 0 && eventOutlook(after, ev).gap === 0) out.push({ key: 'selfFund', id: ev.id, name: ev.name });
+  }
+  for (const ev of after.events) {
+    const evb = before.events.find(x => x.id === ev.id);
+    if (evb && evb.status !== 'paid' && ev.status === 'paid') out.push({ key: 'paid', id: ev.id, name: ev.name });
+  }
+  if (ha.level === 'good' && !out.some(a => a.key === 'recovered')) out.push({ key: 'onTrack' });
+  return out;
+}
+
 export const nextEvent = state => state.events.filter(isOpen).sort((a, b) => (a.dateFrom < b.dateFrom ? -1 : 1))[0] || null;
 
 /** 事件付款後預測現金與備用金缺口 */

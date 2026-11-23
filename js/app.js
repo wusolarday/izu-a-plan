@@ -24,6 +24,7 @@ const tol = () => S.settings.tolerance;
 // 圖示：線條 24×24，跟著文字顏色。只用大家一看就懂的（勾、鉛筆、回復、雲…）
 const ICON = {
   check: '<path d="M5 12.5l4.5 4.5L19 7.5"/>',
+  star: '<path d="M12 3.5l2.6 5.4 5.9.8-4.3 4.1 1 5.8L12 16.9l-5.2 2.7 1-5.8-4.3-4.1 5.9-.8z"/>',
   pencil: '<path d="M4 20h4L19 9l-4-4L4 16v4z"/><path d="M13.5 6.5l4 4"/>',
   undo: '<path d="M9 14L4 9l5-5"/><path d="M4 9h10a6 6 0 010 12h-3"/>',
   warn: '<path d="M12 3.5l9 16H3l9-16z"/><path d="M12 10v4"/><path d="M12 17v.01"/>',
@@ -92,26 +93,51 @@ function banners() {
 
 // 不擋畫面的小提示
 let toastT;
-function toast(msg) {
-  const t = $('#toast'); t.textContent = msg; t.classList.add('on');
+function toast(msg, icon) {
+  const t = $('#toast'); t.innerHTML = (icon ? ic(icon) : '') + esc(msg); t.classList.add('on');
   clearTimeout(toastT); toastT = setTimeout(() => t.classList.remove('on'), 2200);
 }
-// 正向回饋：撒金幣（只在真的值得慶祝的時候用；有開減少動態效果就只顯示文字）
-function celebrate(msg) {
-  if (msg) toast(msg);
-  if (matchMedia('(prefers-reduced-motion: reduce)').matches) return;
-  const box = document.createElement('div');
-  box.className = 'coins'; box.setAttribute('aria-hidden', 'true');
-  for (let i = 0; i < 28; i++) {
-    const c = document.createElement('i'), size = 14 + Math.random() * 14;
-    if (i % 4 === 0) c.className = 'spark';
-    c.style.cssText = `left:${Math.random() * 100}%;width:${size}px;height:${size}px;animation-delay:${Math.random() * 0.5}s;` +
-      `animation-duration:${1.4 + Math.random() * 0.9}s;--x:${(Math.random() - 0.5) * 90}px;--r:${Math.random() * 720 - 360}deg`;
-    box.appendChild(c);
-  }
-  document.body.appendChild(box);
-  setTimeout(() => box.remove(), 2900);
+// ---------- 正向回饋：彩紙爆發 ----------
+// 只在真的值得慶祝的時候用；有開「減少動態效果」就只顯示文字。不靠外部套件，自己算重力與拋物線。
+const reducedMotion = () => matchMedia('(prefers-reduced-motion: reduce)').matches;
+const CONFETTI = ['#fff6c2', '#ffec99', '#ffe066', '#fcd34d', '#f6c445', '#eab308', '#d4a017'];
+function pop(el) { // 作用物件彈性放大
+  el?.animate?.([{ transform: 'scale(1)' }, { transform: 'scale(1.07)', offset: 0.35 }, { transform: 'scale(.985)', offset: 0.7 }, { transform: 'scale(1)' }],
+    { duration: 650, easing: 'cubic-bezier(.2,.8,.2,1)' });
 }
+function confetti(el) { // 從物件下方噴出紙片：隨機速度、角度，受重力拋物線落下、旋轉翻面、尾段淡出
+  const cv = document.createElement('canvas'), dpr = devicePixelRatio || 1, W = innerWidth, H = innerHeight;
+  cv.className = 'confetti'; cv.width = W * dpr; cv.height = H * dpr; cv.setAttribute('aria-hidden', 'true');
+  document.body.appendChild(cv);
+  const ctx = cv.getContext('2d'); ctx.scale(dpr, dpr);
+  const r = el?.getBoundingClientRect(), ox = r ? r.left + r.width / 2 : W / 2, oy = r ? Math.min(r.bottom, H - 40) : H * 0.75;
+  const P = Array.from({ length: 120 }, () => {
+    const ang = (-90 + (Math.random() - 0.5) * 75) * Math.PI / 180, v = 650 + Math.random() * 700;
+    return { x: ox + (Math.random() - 0.5) * (r ? r.width * 0.7 : 120), y: oy, vx: Math.cos(ang) * v, vy: Math.sin(ang) * v,
+      w: 6 + Math.random() * 6, h: 9 + Math.random() * 9, rot: Math.random() * 6.3, vr: (Math.random() - 0.5) * 14,
+      flip: Math.random() * 6.3, vf: 5 + Math.random() * 9, c: CONFETTI[Math.random() * CONFETTI.length | 0], life: 1.6 + Math.random() * 0.8, t: 0 };
+  });
+  const G = 1800; let last = performance.now();
+  const tick = now => {
+    const dt = Math.min(0.033, (now - last) / 1000), drag = Math.pow(0.986, dt * 60); last = now;
+    ctx.clearRect(0, 0, W, H); let alive = 0;
+    for (const q of P) {
+      q.t += dt; if (q.t > q.life) continue; alive++;
+      q.vx *= drag; q.vy = q.vy * drag + G * dt; q.x += q.vx * dt; q.y += q.vy * dt; q.rot += q.vr * dt; q.flip += q.vf * dt;
+      ctx.save(); ctx.globalAlpha = q.t > q.life * 0.7 ? Math.max(0, 1 - (q.t - q.life * 0.7) / (q.life * 0.3)) : 1;
+      ctx.translate(q.x, q.y); ctx.rotate(q.rot); ctx.scale(1, Math.cos(q.flip)); ctx.fillStyle = q.c; ctx.fillRect(-q.w / 2, -q.h / 2, q.w, q.h); ctx.restore();
+    }
+    if (alive) requestAnimationFrame(tick); else cv.remove();
+  };
+  requestAnimationFrame(tick);
+}
+function celebrate(msg, el) {
+  if (msg) toast(msg, 'star');
+  if (reducedMotion()) return;
+  pop(el); confetti(el);
+}
+// 每個畫面效果只播一次（記在這台裝置）
+const once = (key, val) => { try { if (localStorage.getItem(key) === val) return false; localStorage.setItem(key, val); } catch (e) { /* 存不了就照播 */ } return true; };
 
 // 確認：用 App 自己的下方面板，回傳 Promise。input 有值時，回傳輸入的文字
 let askRes = null;
@@ -158,10 +184,10 @@ function home() {
   else if (hs.even) { lead = '你跟計畫比'; amt = '剛好照著走'; }
   else { lead = `你比計畫${hs.diff > 0 ? '多' : '少'}存了`; amt = `約 ${about(hs.diff)}`; }
   if (hs.started && hs.event?.gap > 0) { lv = 'bad'; tag = `付完「${esc(hs.event.ev.name)}」後會低於至少要留的錢`; }
-  const tagIcon = { good: 'check', warn: 'warn', bad: 'warn', none: 'clock' }[lv];
+  const tagIcon = { good: 'check', warn: 'warn', bad: 'warn', none: 'clock' }[lv], streakN = hs.started ? E.streak(S) : 0;
   h.push(`<section class="hero ${lv}"><div class="hero-card">
     <p class="when">${ymd(last.date)} 結算後</p><p class="lead-t">${lead}</p>${amt ? `<p class="hero-amt num-r">${amt}</p>` : ''}
-    <p class="hero-tag"><span class="pill">${ic(tagIcon)}${tag}</span>${hs.started && lv !== 'good' ? '<a href="#" data-act="why">看原因</a>' : ''}</p></div></section>`);
+    <p class="hero-tag"><span class="pill">${ic(tagIcon)}${tag}</span>${streakN >= 3 ? `<span class="pill">${ic('star')}連續 ${streakN} 個月照計畫</span>` : ''}${hs.started && lv !== 'good' ? '<a href="#" data-act="why">看原因</a>' : ''}</p></div></section>`);
 
   // 1. 要做的事：只在真的需要時出現
   const todo = [], due = hs.daysLeft <= 0;
@@ -186,7 +212,7 @@ function home() {
       const chip = ev.selfFund && o.gap ? `<span class="chip warn">${ic('warn')}還差 ${about(o.gap)}</span>` : o.gap ? `<span class="chip bad">${ic('warn')}差 ${about(o.gap)}</span>` : `<span class="chip good only" role="img" aria-label="夠" title="夠">${ic('check')}</span>`;
       const note = ev.selfFund && o.gap ? `每次結算多存約 ${about(o.perSettle)}` : `${range(ev).slice(5)} 付`;
       const node = ev.selfFund && o.gap ? 'warn' : o.gap ? 'bad' : 'good';
-      return `<li class="sched"><div class="mo"><b class="num-r">${+ev.dateFrom.slice(5, 7)}月</b><span>${ev.dateFrom.slice(0, 4)}</span></div>
+      return `<li class="sched" data-ev="${ev.id}"><div class="mo"><b class="num-r">${+ev.dateFrom.slice(5, 7)}月</b><span>${ev.dateFrom.slice(0, 4)}</span></div>
         <div class="rail ${node}" aria-hidden="true"><i></i></div><div class="nm"><b>${esc(ev.name)}${ev.estimate ? '<span class="tag">暫估</span>' : ''}</b><span>${note}</span></div>
         <div class="amt"><b class="num-r">${left < 0 ? '＋' : ''}${about(left)}</b>${chip}</div></li>`;
     }).join('');
@@ -196,6 +222,31 @@ function home() {
   h.push(detailHtml(last));
   if (!due) h.push('<p class="foot-link"><a href="#settle">提早結算</a></p>');
   app.innerHTML = h.join('');
+  homeEffects(last);
+}
+
+// 首頁動態：結算後的慶祝、大數字跳動（每次結算只播一次）
+function homeEffects(last) {
+  const card = $('.hero-card'), ach = pendingAch; pendingAch = null;
+  if (ach) {
+    if (ach.some(a => a.key === 'recovered') && !reducedMotion()) card?.classList.add('recover'); // 從暗色轉成主色
+    for (const a of ach.filter(a => a.key === 'selfFund')) $(`.sched[data-ev="${a.id}"] .chip`)?.classList.add('flash');
+    const msg = ach.slice(0, 2).map(a => ACH[a.key](a)).join('，') + '！';
+    setTimeout(() => celebrate(msg, card), 250);
+  }
+  const amt = $('.hero-amt');
+  if (amt && !reducedMotion() && once('countup', last.date)) countUp(amt);
+}
+function countUp(el) { // 數字從 0 跳到實際金額
+  const m = el.textContent.match(/[\d,]+(\.\d+)?/); if (!m) return;
+  const target = Number(m[0].replace(/,/g, '')), dec = (m[1] || '').length - (m[1] ? 1 : 0), pre = el.textContent.slice(0, m.index), post = el.textContent.slice(m.index + m[0].length);
+  const t0 = performance.now(), D = 900;
+  const step = now => {
+    const k = Math.min(1, (now - t0) / D), e = 1 - Math.pow(1 - k, 3);
+    el.textContent = pre + (target * e).toLocaleString('zh-TW', { minimumFractionDigits: dec, maximumFractionDigits: dec }) + post;
+    if (k < 1) requestAnimationFrame(step);
+  };
+  requestAnimationFrame(step);
 }
 
 // 生活費圓環：首頁與紀錄頁共用
@@ -434,7 +485,11 @@ function showPreview() {
   setConfirm();
 }
 
+const ACH = { recovered: () => '追上計畫了', streak: a => `連續 ${a.n} 個月照計畫`, first: () => '第一次結算完成',
+  selfFund: a => `${a.name}預估夠了`, paid: a => `「${a.name}」付清了`, onTrack: () => '這個月照計畫存到了' };
+let pendingAch = null; // 回到首頁後播放
 async function confirmSettle() {
+  const before = structuredClone(S);
   if (preview?.early && !(await ask({ title: '這次不是完整的一個月', body: '距離上次結算不到一個月，這期的生活費會不準。確定要結算嗎？', ok: '還是要結算' }))) return;
   const snap = buildSnap(), applied = { events: [], plan: [], sideItems: [] };
   const q = E.questions(S, snap.date);
@@ -454,7 +509,10 @@ async function confirmSettle() {
   snap.applied = applied;
   S.snapshots.push(snap); S.draft = null; D = null; preview = null;
   await commit(`結算 ${snap.date}`);
-  location.hash = '#home';
+  const ach = E.achievements(before, S, today());
+  pendingAch = ach.length ? ach : null;
+  if (location.hash === '#home') render(); else location.hash = '#home';
+  if (ach.length) await new Promise(r => setTimeout(r, reducedMotion() ? 600 : 1900)); // 先讓慶祝播完再問備份
   if (await ask({ title: '結算完成', body: '要現在備份到 iCloud 雲碟嗎？資料只在這台手機，備份比較安心。', ok: `${ic('cloud')}現在備份` })) backup();
 }
 
@@ -538,6 +596,11 @@ function plan() {
     <div class="actions"><button data-act="evadd">${ic('plus')}新增款項</button></div>
   <h2>至少要留的錢</h2><form class="card" id="resf"><p class="muted" style="margin:0">付完大筆款項後，帳戶裡至少要剩多少才安心（備用金）。</p>
     <input name="reserve" inputmode="numeric" value="${S.settings.reserve}"><div class="actions"><button class="pri" data-act="ressave">儲存</button></div></form>`;
+  // 上一次結算付清的款項：狀態圖示跳一下（每筆只一次）
+  for (const f of (lastSnap().flows || []).filter(f => f.kind === 'event')) {
+    const ev = S.events.find(e => e.id === f.eventId);
+    if (ev?.status === 'paid' && !reducedMotion() && once('paidpop-' + ev.id, '1')) $(`#evc-${ev.id} .st`)?.classList.add('pop');
+  }
 }
 
 // ---------- 設定：外觀、提醒、備份、測試、進階 ----------
@@ -574,7 +637,7 @@ async function shareFile(name, text, type) {
 }
 async function backup() {
   const ok = await shareFile(`izu-a-plan-backup-${today().replaceAll('-', '')}.json`, JSON.stringify(S, null, 1), 'application/json');
-  if (ok) { S.lastBackup = new Date().toISOString(); await commit('備份'); render(); }
+  if (ok) { S.lastBackup = new Date().toISOString(); await commit('備份'); render(); toast('已備份到 iCloud 雲碟', 'check'); }
 }
 async function importFile(file) {
   try {
@@ -615,7 +678,7 @@ const acts = {
   ack: () => {
     D.ack = true; showPreview();
     const saved = preview.p.budget - preview.p.E;
-    if (saved > 0) celebrate(`省下約 ${about(saved)}，做得好！`);
+    if (saved > 0) celebrate(`省下約 ${about(saved)}，做得好！`, $('#preview .hero-card'));
   },
   fixknown: () => { D.carry = false; D.fix ??= { kind: 'otherIn', amount: '' }; showPreview(); $('[data-k="fix.amount"]').focus(); },
   fixadd: () => {
