@@ -128,6 +128,22 @@ function newDraft() {
 const setPath = (o, path, v) => { const k = path.split('.'); const last = k.pop(); k.reduce((a, x) => (a[x] ??= {}), o)[last] = v; };
 const getPath = (o, path) => path.split('.').reduce((a, x) => a?.[x], o);
 const field = (k, attrs = '') => `data-k="${k}" value="${esc(getPath(D, k) ?? '')}" ${attrs}`;
+// 金額欄：下方即時顯示千分位與「約幾萬」，現金總額另外跟上次比
+const wan = v => Math.abs(v) >= 1e4 ? `（約 ${(v / 1e4).toLocaleString('zh-TW', { maximumFractionDigits: 1 })} 萬）` : '';
+function echo(k) {
+  const raw = getPath(D, k);
+  if (raw === '' || raw == null) return '';
+  const v = num(raw);
+  if (!Number.isFinite(v)) return '<span class="bad">請只填數字</span>';
+  let s = `${fmt(v)} 元${wan(v)}`;
+  if (k === 'cash') {
+    const prev = lastSnap().cash, r = prev ? v / prev : 1;
+    s += `・比上次 ${sgn(v - prev)}`;
+    if (r > 2.5 || r < 0.4) s += '<br><span class="bad">跟上次差很多，請確認位數</span>';
+  }
+  return s;
+}
+const money = (k, attrs = '') => `<input inputmode="numeric" ${field(k, attrs)}><div class="echo" data-echo="${k}">${echo(k)}</div>`;
 const radio = (k, v, label) => `<label><input type="radio" name="${k}" data-k="${k}" value="${v}" ${getPath(D, k) === v ? 'checked' : ''}> ${label}</label>`;
 const FLOW = { income: ['一次性收入（中獎、獎金等）', 1], gift: ['家人資助', 1], stockSell: ['賣股入帳', 1], loanIn: ['借款入帳', 1], stockBuy: ['買股', -1], prepay: ['提前還款', -1], otherOut: ['其他非生活支出（押金等）', -1], otherIn: ['其他入帳（退款、押金返還等）', 1] };
 
@@ -136,56 +152,58 @@ function settle() {
   if (D.date <= lastSnap().date) D.date = E.nextDue(S);
   const q = E.questions(S, D.date), last = lastSnap();
   const accNames = S.accounts || [];
-  const h = [`<div class="card"><h3>結算日</h3><input type="date" ${field('date')}><div class="muted">上次結算 ${ymd(last.date)}・預定 ${ymd(E.nextDue(S))}</div></div>`];
-  h.push(`<div class="card"><h3>現金總額</h3><input inputmode="numeric" ${field('cash', 'placeholder="所有帳戶＋現金＋定存"')}>
-    <details><summary>帳戶計算機</summary>${accNames.length ? accNames.map((n, i) => `<label>${esc(n)}</label><input inputmode="numeric" ${field('acc.' + i)}>`).join('') + '<div class="actions"><button class="small" data-act="accsum">加總填入</button></div>' : '<p class="muted">到「設定」新增帳戶暱稱即可使用。</p>'}</details>
+  const h = [`<div class="card" id="c-date"><h3>結算日</h3><input type="date" ${field('date')}><div class="muted">上次結算 ${ymd(last.date)}・預定 ${ymd(E.nextDue(S))}</div></div>`];
+  h.push(`<div class="card" id="c-cash"><h3>現金總額</h3>${money('cash', 'placeholder="所有帳戶＋現金＋定存"')}
+    <details><summary>帳戶計算機</summary>${accNames.length ? accNames.map((n, i) => `<label>${esc(n)}</label>${money('acc.' + i)}`).join('') + '<div class="actions"><button class="small" data-act="accsum">加總填入</button></div>' : '<p class="muted">到「設定」新增帳戶暱稱即可使用。</p>'}</details>
     <div class="muted">輸入網銀看到的總額即可，已包含本期入帳的薪資、兼職。</div>
-    <label>股票市值（選填，不算現金）</label><input inputmode="numeric" ${field('stock')}></div>`);
-  h.push(`<div class="card"><h3>兼職收入</h3><div class="muted">填本期實際收到的金額（沒收到填 0）。這筆已在現金總額裡，工具不會重複加。</div>${S.sideItems.filter(i => i.active).map(i => `<label>${esc(i.name)}${i.kind === 'once' ? '（單次）' : ''}</label><input inputmode="numeric" ${field('side.' + i.id)}>`).join('')}
-    <details><summary>新增一筆兼職</summary><label>名稱</label><input ${field('newSide.name')}><label>本期金額</label><input inputmode="numeric" ${field('newSide.amount')}>
+    <label>股票市值（選填，不算現金）</label>${money('stock')}</div>`);
+  h.push(`<div class="card"><h3>兼職收入</h3><div class="muted">填本期實際收到的金額（沒收到填 0）。這筆已在現金總額裡，工具不會重複加。</div>${S.sideItems.filter(i => i.active).map(i => `<label>${esc(i.name)}${i.kind === 'once' ? '（單次）' : ''}</label>${money('side.' + i.id)}`).join('')}
+    <details><summary>新增一筆兼職</summary><label>名稱</label><input ${field('newSide.name')}><label>本期金額</label>${money('newSide.amount')}
     <div class="opts">${radio('newSide.kind', 'once', '單次')}${radio('newSide.kind', 'monthly', '每月固定')}</div></details></div>`);
   for (const ev of q.events) {
     const k = 'ev.' + ev.id; D.ev[ev.id] ??= { mode: '', amount: -E.eventRemaining(S, ev), from: ev.dateFrom, to: ev.dateTo };
-    h.push(`<div class="card"><h3>${esc(ev.name)}付了嗎？</h3><div class="muted">${range(ev)}・剩 ${fmt(-E.eventRemaining(S, ev))} 元</div>
+    h.push(`<div class="card" id="c-ev-${ev.id}"><h3>${esc(ev.name)}付了嗎？</h3><div class="muted">${range(ev)}・剩 ${fmt(-E.eventRemaining(S, ev))} 元</div>
       <div class="opts">${radio(k + '.mode', 'paid', '已付全額')}${radio(k + '.mode', 'partial', '部分付款')}${radio(k + '.mode', 'no', '還沒付')}${radio(k + '.mode', 'delay', '延期')}</div>
-      ${['paid', 'partial'].includes(D.ev[ev.id].mode) ? `<label>付款金額</label><input inputmode="numeric" ${field(k + '.amount')}>` : ''}
+      ${['paid', 'partial'].includes(D.ev[ev.id].mode) ? `<label>付款金額</label>${money(k + '.amount')}` : ''}
       ${D.ev[ev.id].mode === 'delay' ? `<div class="inline"><div><label>新日期（最早）</label><input type="date" ${field(k + '.from')}></div><div><label>最晚</label><input type="date" ${field(k + '.to')}></div></div>` : ''}</div>`);
   }
   for (const b of q.bonus) {
     const k = 'bonus.' + b.year; D.bonus[b.year] ??= { mode: '', amount: b.plan, scope: 'once' };
-    h.push(`<div class="card"><h3>${b.year} 年終發了嗎？</h3><div class="muted">計畫 ${fmt(b.plan)}</div>
+    h.push(`<div class="card" id="c-bonus-${b.year}"><h3>${b.year} 年終發了嗎？</h3><div class="muted">計畫 ${fmt(b.plan)}</div>
       <div class="opts">${radio(k + '.mode', 'got', '已發')}${radio(k + '.mode', 'no', '還沒發')}</div>
-      ${D.bonus[b.year].mode === 'got' ? `<label>實領金額</label><input inputmode="numeric" ${field(k + '.amount')}>
+      ${D.bonus[b.year].mode === 'got' ? `<label>實領金額</label>${money(k + '.amount')}
       <div class="opts">${radio(k + '.scope', 'once', '只有今年')}${radio(k + '.scope', 'after', '以後也是這個金額')}</div>` : ''}</div>`);
   }
   const planSal = E.regularItems(S.plan, last.date, D.date).filter(i => i.type === 'salary').reduce((t, i) => t + i.amount, 0);
-  h.push(`<details ${D.salary !== '' ? 'open' : ''} id="d-salary"><summary>收入有變動</summary><div class="card"><label>本期薪資實領（空白＝照計畫 ${fmt(planSal)}）</label><input inputmode="numeric" ${field('salary')}>
+  h.push(`<details ${D.salary !== '' ? 'open' : ''} id="d-salary"><summary>收入有變動</summary><div class="card"><label>本期薪資實領（空白＝照計畫 ${fmt(planSal)}）</label>${money('salary')}
     <div class="opts">${radio('salaryScope', 'once', '只有這次（請假等）')}${radio('salaryScope', 'after', '之後都是（調薪等）')}</div></div></details>`);
   h.push(`<details ${D.flows.length ? 'open' : ''} id="d-flows"><summary>其他大筆進出</summary><div class="card">${D.flows.map((f, i) => `<div class="inline"><select data-k="flows.${i}.kind">${Object.entries(FLOW).map(([v, [l]]) => `<option value="${v}" ${f.kind === v ? 'selected' : ''}>${l}</option>`).join('')}</select>
-    <input inputmode="numeric" placeholder="金額" ${field(`flows.${i}.amount`)}></div><input placeholder="備註" ${field(`flows.${i}.note`)}>`).join('<hr>')}
+    <input inputmode="numeric" placeholder="金額" ${field(`flows.${i}.amount`)}></div><div class="echo" data-echo="flows.${i}.amount">${echo(`flows.${i}.amount`)}</div><input placeholder="備註" ${field(`flows.${i}.note`)}>`).join('<hr>')}
     <div class="actions"><button class="small" data-act="addflow">新增一筆</button></div></div></details>`);
-  h.push(`<div id="preview"></div><div class="actions full"><button data-act="calc">試算</button><button class="pri" data-act="confirm" ${preview ? '' : 'disabled'}>確認結算</button></div>
+  h.push(`<div id="preview"></div><div class="actions full"><button data-act="calc">試算</button><button class="pri" data-act="confirm" disabled>確認結算</button></div><div class="hint" id="cf-hint"></div>
     <div class="actions"><button class="small" data-act="discard">清除草稿</button></div>`);
   app.innerHTML = h.join('');
-  if (preview) showPreview();
+  if (preview) showPreview(); else setConfirm();
 }
 
+const fail = (msg, at) => { throw Object.assign(new Error(msg), { at }); };
 function buildSnap() {
   const last = lastSnap(), cash = num(D.cash);
-  if (cash == null || !Number.isFinite(cash)) throw new Error('請輸入現金總額');
-  if (!D.date || D.date <= last.date) throw new Error('結算日需晚於上次結算');
+  if (cash == null) fail('請輸入現金總額', 'c-cash');
+  if (!Number.isFinite(cash)) fail('現金總額請只填數字', 'c-cash');
+  if (!D.date || D.date <= last.date) fail(`結算日要晚於上次結算（${ymd(last.date)}）`, 'c-date');
   const q = E.questions(S, D.date);
   const snap = { id: uid('s'), date: D.date, cash, stock: num(D.stock) ?? 0, side: [], bonus: [], flows: [] };
   for (const [id, v] of Object.entries(D.side)) if (num(v)) snap.side.push({ itemId: id, amount: num(v) });
   if (num(D.newSide.amount) && D.newSide.name) snap.side.push({ itemId: 'new', amount: num(D.newSide.amount) });
   for (const ev of q.events) {
     const a = D.ev[ev.id];
-    if (!a?.mode) throw new Error(`請回答「${ev.name}」付了沒`);
+    if (!a?.mode) fail(`請回答「${ev.name}」付了沒`, 'c-ev-' + ev.id);
     if (['paid', 'partial'].includes(a.mode)) snap.flows.push({ kind: 'event', eventId: ev.id, amount: -Math.abs(num(a.amount)) * Math.sign(-ev.amount || 1) });
   }
   for (const b of q.bonus) {
     const a = D.bonus[b.year];
-    if (!a?.mode) throw new Error(`請回答 ${b.year} 年終發了沒`);
+    if (!a?.mode) fail(`請回答 ${b.year} 年終發了沒`, 'c-bonus-' + b.year);
     if (a.mode === 'got') snap.bonus.push({ year: b.year, amount: num(a.amount) || 0 });
   }
   if (D.salary !== '' && num(D.salary) != null) snap.salary = num(D.salary);
@@ -200,6 +218,28 @@ function calc() {
   const early = snap.date < E.addDays(E.nextDue(S), -5);
   preview = { snap, p, early, check: !early && E.needsIncomeCheck(S, p) };
   settle();
+  $('#preview').scrollIntoView({ behavior: 'smooth', block: 'start' });
+}
+
+// 確認鈕：不能按時寫出原因
+function setConfirm() {
+  const b = $('[data-act=confirm]'), h = $('#cf-hint');
+  if (!b) return;
+  const p = preview?.p;
+  const why = !preview ? '填好後先按「試算」，確認數字再結算'
+    : p.E < 0 ? '先補記入帳或更正總額，才能結算'
+    : preview.check && !D.ack ? '先回答上面黃色框的問題，才能結算' : '';
+  b.disabled = !!why; h.textContent = why;
+}
+
+function showError(e) {
+  document.querySelectorAll('.card.err').forEach(c => c.classList.remove('err'));
+  document.querySelectorAll('.err-msg').forEach(x => x.remove());
+  const card = e.at && document.getElementById(e.at);
+  if (!card) return alert(e.message);
+  card.classList.add('err');
+  card.insertAdjacentHTML('afterbegin', `<div class="err-msg" role="alert">${esc(e.message)}</div>`);
+  card.scrollIntoView({ behavior: 'smooth', block: 'start' });
 }
 
 const verdict = over => Math.round(over) === 0 ? '<span class="good">剛好等於預算</span>' : over < 0
@@ -229,7 +269,7 @@ function showPreview() {
         <div class="actions"><button class="small" data-act="open" data-id="d-flows">有收入沒記</button><button class="small" data-act="ack">沒有，真的省下來了</button></div></div>`);
   }
   $('#preview').innerHTML = h.join('') + '</div>';
-  $('[data-act=confirm]').disabled = p.E < 0 || (check && !D.ack);
+  setConfirm();
 }
 
 async function confirmSettle() {
@@ -353,8 +393,8 @@ const acts = {
   sbEnd: async () => { if (!confirm('還原到開始測試前的資料？測試期間的變更會全部丟掉。')) return; S = await DB.load('sandbox'); D = null; preview = null; await DB.save(S); await DB.clear('sandbox'); sandbox = false; location.hash = '#home'; render(); },
   sbKeep: async () => { if (!confirm('保留測試期間的變更，並結束測試模式？')) return; await DB.clear('sandbox'); sandbox = false; render(); },
   update: () => navigator.serviceWorker.getRegistration().then(r => r?.waiting?.postMessage('skip')),
-  calc: () => { try { calc(); } catch (e) { alert(e.message); } },
-  confirm: () => confirmSettle().catch(e => alert(e.message)),
+  calc: () => { try { calc(); } catch (e) { showError(e); } },
+  confirm: () => confirmSettle().catch(showError),
   ack: () => { D.ack = true; showPreview(); },
   quick: el => {
     D.flows.push({ kind: el.dataset.kind, amount: '', note: '' }); preview = null; settle();
@@ -398,8 +438,12 @@ const onInput = e => {
   if (!k || !D) return;
   const v = e.target.type === 'radio' ? (e.target.checked ? e.target.value : getPath(D, k)) : e.target.value;
   setPath(D, k, v);
+  const ec = document.querySelector(`[data-echo="${k}"]`);
+  if (ec) ec.innerHTML = echo(k);
+  const ce = e.target.closest('.card.err');
+  if (ce) { ce.classList.remove('err'); ce.querySelector('.err-msg')?.remove(); }
   if (e.type === 'change' && (e.target.type === 'radio' || k === 'date')) { preview = null; settle(); }
-  else if (preview) { preview = null; $('#preview').innerHTML = ''; $('[data-act=confirm]').disabled = true; }
+  else if (preview) { preview = null; $('#preview').innerHTML = ''; setConfirm(); }
   clearTimeout(saveT); saveT = setTimeout(() => { S.draft = D; DB.save(S); }, 400);
 };
 document.addEventListener('input', onInput);

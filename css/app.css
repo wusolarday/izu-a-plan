@@ -33,6 +33,14 @@ input[type=radio],input[type=checkbox]{width:auto}
 .opts label{display:flex;gap:8px;align-items:center;color:var(--ink);font-size:16px;margin:6px 0}
 button,.btn{font:inherit;font-size:16px;padding:11px 16px;border-radius:10px;border:1px solid var(--pri);background:#fff;color:var(--pri);cursor:pointer;text-decoration:none;display:inline-block;text-align:center}
 button.pri,.btn.pri{background:var(--pri);color:#fff}
+button:disabled{opacity:.35;cursor:not-allowed}
+.hint{font-size:14px;color:var(--warn);margin-top:6px;text-align:right}
+.hint:empty{display:none}
+.echo{font-size:14px;color:var(--muted);margin-top:4px;font-variant-numeric:tabular-nums;min-height:1em}
+.echo:empty{display:none}
+.card,#preview{scroll-margin-top:72px}
+.card.err{border-color:var(--bad);box-shadow:0 0 0 2px #f3c2bd}
+.err-msg{color:var(--bad);font-weight:600;font-size:15px;margin:0 0 6px}
 button.danger{border-color:var(--bad);color:var(--bad)}
 button.small{font-size:14px;padding:6px 10px}
 .actions{display:flex;gap:8px;flex-wrap:wrap;margin-top:12px}
