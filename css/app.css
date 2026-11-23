@@ -69,7 +69,7 @@ h3{font-size:17px;margin:0 0 6px}
 /* 首頁三塊：要做的事｜生活費｜大筆款項 */
 .label{font-size:15px;color:var(--muted);margin:4px 0 0}
 .big-sm{font-size:22px;font-weight:700;margin:4px 0 0}
-.card .big{font-size:40px;line-height:1.15;letter-spacing:-.01em;margin:2px 0 4px}
+.card .big{font-size:32px;line-height:1.15;letter-spacing:-.01em;margin:2px 0 4px}
 .sub-block{border-top:1px solid var(--line);margin-top:14px;padding-top:10px}
 .todo .row{display:flex;gap:12px;align-items:center;padding:10px 0;border-top:1px solid var(--line)}
 .todo h3+.row{border-top:0;padding-top:4px}
@@ -124,14 +124,21 @@ button .ic,.btn .ic{margin:0 2px}
 .segopt:has(input:checked){background:var(--surface);font-weight:600;box-shadow:0 1px 2px color-mix(in srgb,var(--ink) 20%,transparent)}
 
 /* ---- 首頁：結論卡（狀態只用金額顏色） ---- */
-.hero{margin:8px 0 12px;--glow:var(--good)}
-.hero.warn{--glow:var(--warn)}.hero.bad{--glow:var(--bad)}.hero.none{--glow:var(--pri)}
-.hero.good,.hero.warn,.hero.bad,.hero.none{color:var(--ink)}
-.hero-card{background:var(--surface);border-radius:var(--r);padding:16px 18px 18px;box-shadow:var(--shadow)}
-.when{font-size:14px;color:var(--muted);margin:0 0 4px}
-.hero .say{font-size:28px;line-height:1.3;font-weight:700;margin:0;letter-spacing:-.01em}
-.hero .say b{white-space:nowrap;color:color-mix(in srgb,var(--glow) 70%,var(--ink))}
-.hero .sub{font-size:16px;color:var(--muted);margin:8px 0 0}.hero .sub a{white-space:nowrap}
+.hero{margin:8px 0 12px}
+/* 主色漸層：左上較亮、右下較深，右上一點高光；文字用 on-pri（石墨深色模式會自動變深色字） */
+.hero-card{color:var(--on-pri);border-radius:22px;padding:18px 20px 18px;
+  background:radial-gradient(90% 80% at 100% 0%,color-mix(in srgb,var(--pri) 45%,#fff) 0%,transparent 60%),
+             linear-gradient(150deg,color-mix(in srgb,var(--pri) 85%,#fff) 0%,var(--pri) 50%,color-mix(in srgb,var(--pri) 75%,#000) 100%);
+  box-shadow:0 12px 28px color-mix(in srgb,var(--pri) 32%,transparent),inset 0 1px 0 rgba(255,255,255,.22)}
+.hero .when{color:inherit;opacity:.75;margin:0}
+.hero .lead-t{font-size:18px;font-weight:600;margin:6px 0 0}
+.hero-amt{font-size:48px;line-height:1.1;font-weight:800;letter-spacing:-.02em;margin:2px 0 0}
+.hero-tag{display:flex;align-items:center;flex-wrap:wrap;gap:6px 12px;margin:12px 0 0}
+.hero-tag a{color:inherit;white-space:nowrap;font-size:15px}
+.pill{display:inline-flex;align-items:center;gap:5px;font-size:14px;font-weight:600;padding:4px 10px 4px 8px;border-radius:99px;
+  background:color-mix(in srgb,var(--on-pri) 18%,transparent)}
+.pill .ic{width:16px;height:16px;stroke-width:2.4}
+.hero.warn .pill{background:var(--surface);color:var(--warn-t)}.hero.bad .pill{background:var(--surface);color:var(--bad-t)}
 /* 圓體數字（Apple 內建 ui-rounded；沒有的裝置用系統字） */
 .num-r,.hero .say b{font-family:ui-rounded,"SF Pro Rounded",-apple-system,BlinkMacSystemFont,"PingFang TC",sans-serif;font-variant-numeric:tabular-nums}
 /* 生活費圓環 */
@@ -171,7 +178,7 @@ button,.btn{font:inherit;font-size:17px;min-height:48px;padding:10px 18px;border
   cursor:pointer;text-decoration:none;display:inline-flex;align-items:center;justify-content:center;text-align:center}
 button,.btn{transition:transform .1s ease-out}
 button:active:not(:disabled),.btn:active{transform:scale(.97)}
-button.pri,.btn.pri{background:var(--pri);border-color:var(--pri);color:var(--on-pri)}
+button.pri,.btn.pri{background:linear-gradient(180deg,color-mix(in srgb,var(--pri) 86%,#fff),var(--pri));border-color:var(--pri);color:var(--on-pri)}
 button:disabled{opacity:.35;cursor:not-allowed}
 button.danger{border-color:var(--bad-t);color:var(--bad-t)}
 button.small,.btn.small{font-size:15px;min-height:40px;padding:6px 12px}

@@ -117,20 +117,21 @@ function welcome() {
 // ---------- 首頁：先講結論，數字往後放 ----------
 // 首頁金額一律「約 X 萬」；精確數字收在「看詳細數字」
 const about = n => { const a = Math.abs(Math.round(n)); return a >= 1e4 ? `${(a / 1e4).toLocaleString('zh-TW', { maximumFractionDigits: 1 })} 萬` : `${fmt(a)} 元`; };
-const SUB = { good: '照這樣走，沒問題。', warn: '還不用緊張，接下來幾個月少花一點就能追上。', bad: '落後比較多，可以先看看是哪裡差了。' };
+const SUB = { good: '照這樣走，沒問題', warn: '少花一點就能追上', bad: '落後比較多' };
 
 function home() {
   const last = lastSnap(), hs = E.homeSummary(S, today()), p = E.progress(S).periods.at(-1);
   const h = [];
-  let lv = hs.level, say, sub = SUB[lv];
-  if (!hs.started) { lv = 'none'; say = '已經記下起點了'; sub = `${md(hs.nextDate)} 第一次結算後，就會告訴你有沒有照計畫走。`; }
-  else if (hs.even) say = '你剛好照著計畫走';
-  else say = `你比計畫${hs.diff > 0 ? '多' : '少'}存了約 <b>${about(hs.diff)}</b>`;
-  if (hs.started && hs.event?.gap > 0) sub = `要注意：付完「${esc(hs.event.ev.name)}」後，錢會比至少要留的 ${about(S.settings.reserve)} 還少。`;
-  // 結論卡：狀態只用金額的顏色表示（不用光暈）
+  // 結論卡：主色漸層底、全頁最大的數字；狀態用卡片上的小標籤（綠紅字放在主色上會很醜）
+  let lv = hs.level, lead = '', amt = '', tag = SUB[lv];
+  if (!hs.started) { lv = 'none'; lead = '已經記下起點了'; tag = `${md(hs.nextDate)} 第一次結算後，就會告訴你進度`; }
+  else if (hs.even) { lead = '你跟計畫比'; amt = '剛好照著走'; }
+  else { lead = `你比計畫${hs.diff > 0 ? '多' : '少'}存了`; amt = `約 ${about(hs.diff)}`; }
+  if (hs.started && hs.event?.gap > 0) { lv = 'bad'; tag = `付完「${esc(hs.event.ev.name)}」後會低於至少要留的錢`; }
+  const tagIcon = { good: 'check', warn: 'warn', bad: 'warn', none: 'clock' }[lv];
   h.push(`<section class="hero ${lv}"><div class="hero-card">
-    <p class="when">${ymd(last.date)} 結算後的狀況</p><p class="say">${say}</p>
-    <p class="sub">${sub}${hs.started && lv !== 'good' ? ' <a href="#" data-act="why">看原因</a>' : ''}</p></div></section>`);
+    <p class="when">${ymd(last.date)} 結算後</p><p class="lead-t">${lead}</p>${amt ? `<p class="hero-amt num-r">${amt}</p>` : ''}
+    <p class="hero-tag"><span class="pill">${ic(tagIcon)}${tag}</span>${hs.started && lv !== 'good' ? '<a href="#" data-act="why">看原因</a>' : ''}</p></div></section>`);
 
   // 1. 要做的事：只在真的需要時出現
   const todo = [], due = hs.daysLeft <= 0;
