@@ -9,6 +9,7 @@
 [data-palette=sage]{--pri:#5b7a65;--good:#6b8f4f;--warn:#cf9c22;--bad:#c4363a}
 [data-palette=coral]{--pri:#d4573e;--good:#5c9469;--warn:#d9a51e;--bad:#a8203f}
 [data-palette=wood]{--pri:#7a5232;--good:#5e8a4a;--warn:#d6a127;--bad:#b42a3c}
+[data-palette=salmon]{--pri:#e8846c;--good:#3f8f7a;--warn:#d9a514;--bad:#a3193f}
 [data-palette=oak]{--pri:#b08657;--good:#5b8a4c;--warn:#e0a910;--bad:#b52a3a}
 [data-palette=olive]{--pri:#655a49;--good:#4f8a55;--warn:#d4a126;--bad:#b3303b}
 /* 木頭系：主色卡加上很淡的木紋（其他配色 --texture 為 none） */
@@ -24,5 +25,6 @@ html[data-mode=dark]{--bg:#1c1c1e;--surface:#2c2c2e;--ink:#f2f2f7}
 @media (prefers-color-scheme:dark){html:not([data-mode=light])[data-palette=graphite]{--pri:#f2f2f7;--on-pri:#1c1c1e}}
 html[data-mode=dark][data-palette=graphite]{--pri:#f2f2f7;--on-pri:#1c1c1e}
 
-/* 淺橡木：顏色太淺，白字看不清楚 → 主色卡與按鈕改用深咖啡字；連結用深一點的橡木色 */
+/* 淺橡木、鮭魚：顏色太淺，白字看不清楚 → 主色卡與按鈕改用深咖啡字；連結用深一點的橡木色 */
 html[data-palette=oak]{--on-pri:#2b2118;--pri-t:#7d5a35}
+html[data-palette=salmon]{--on-pri:#3b1f17;--pri-t:#a9472f}
