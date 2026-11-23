@@ -6,8 +6,17 @@
 [data-palette=choco]{--pri:#6b3f26;--good:#4b7a3c;--warn:#b0711c;--bad:#a8362f}
 [data-palette=indigo]{--pri:#4b3cc4;--good:#2f7d57;--warn:#b26a12;--bad:#b8344d}
 [data-palette=pine]{--pri:#2d5d4f;--good:#2b7a4b;--warn:#9a6212;--bad:#b0413e}
+[data-palette=sage]{--pri:#5b7a65;--good:#4f8a5b;--warn:#b07a2a;--bad:#b04a42}
+[data-palette=lavender]{--pri:#7a63d6;--good:#3f8a6a;--warn:#b5751c;--bad:#c2416a}
+[data-palette=ocean]{--pri:#2f6db0;--good:#2c8a6e;--warn:#b77314;--bad:#c2453f}
+[data-palette=coral]{--pri:#d4573e;--good:#3d8a5c;--warn:#b8780f;--bad:#b3283b}
+[data-palette=graphite]{--pri:#2c2c2e;--good:#34a05a;--warn:#c27c0e;--bad:#d1453b}
 
 /* 無彩色底：bg 底色｜surface 卡片｜ink 文字（所有配色共用） */
 :root{--bg:#f2f2f7;--surface:#ffffff;--ink:#1c1c1e}
 @media (prefers-color-scheme:dark){html:not([data-mode=light]){--bg:#1c1c1e;--surface:#2c2c2e;--ink:#f2f2f7}}
 html[data-mode=dark]{--bg:#1c1c1e;--surface:#2c2c2e;--ink:#f2f2f7}
+
+/* 石墨：按鈕本身就是黑色，深色模式要反過來變白色 */
+@media (prefers-color-scheme:dark){html:not([data-mode=light])[data-palette=graphite]{--pri:#f2f2f7;--on-pri:#1c1c1e}}
+html[data-mode=dark][data-palette=graphite]{--pri:#f2f2f7;--on-pri:#1c1c1e}

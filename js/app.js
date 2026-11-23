@@ -45,7 +45,7 @@ const iconBtn = (name, label, attrs) => `<button class="icon-btn" aria-label="${
 const rows = list => `<table class="rows">${list.filter(Boolean).map(([a, b, cls]) => `<tr class="${cls || ''}"><td>${a}</td><td class="num">${b}</td></tr>`).join('')}</table>`;
 
 // 配色：色碼在 css/theme.css，這裡只列名稱。存在這台裝置（不進備份）
-const PALETTES = { choco: '巧克力', indigo: '靛紫', pine: '松綠' };
+const PALETTES = { choco: '巧克力', indigo: '靛紫', lavender: '薰衣草', ocean: '霧藍', sage: '鼠尾草', pine: '松綠', coral: '珊瑚', graphite: '石墨' };
 const MODES = { auto: '跟著手機', light: '淺色', dark: '深色' };
 function setMode(m) {
   if (m === 'auto') delete document.documentElement.dataset.mode; else document.documentElement.dataset.mode = m;
@@ -120,13 +120,16 @@ const SUB = { good: '照這樣走，沒問題。', warn: '還不用緊張，接�
 
 function home() {
   const last = lastSnap(), hs = E.homeSummary(S, today()), p = E.progress(S).periods.at(-1);
-  const h = [`<p class="when">${ymd(last.date)} 結算後的狀況</p>`];
+  const h = [];
   let lv = hs.level, say, sub = SUB[lv];
   if (!hs.started) { lv = 'none'; say = '已經記下起點了'; sub = `${md(hs.nextDate)} 第一次結算後，就會告訴你有沒有照計畫走。`; }
   else if (hs.even) say = '你剛好照著計畫走';
   else say = `你比計畫${hs.diff > 0 ? '多' : '少'}存了約 <b>${about(hs.diff)}</b>`;
   if (hs.started && hs.event?.gap > 0) sub = `要注意：付完「${esc(hs.event.ev.name)}」後，錢會比至少要留的 ${about(S.settings.reserve)} 還少。`;
-  h.push(`<div class="verdict ${lv}"><p class="say">${say}</p><p class="sub">${sub}${hs.started && lv !== 'good' ? ' <a href="#" data-act="why">看原因</a>' : ''}</p></div>`);
+  // 狀態色的柔光放在毛玻璃卡後面：還沒讀字，看顏色就知道狀況
+  h.push(`<section class="hero ${lv}"><div class="glow" aria-hidden="true"></div><div class="hero-card">
+    <p class="when">${ymd(last.date)} 結算後的狀況</p><p class="say">${say}</p>
+    <p class="sub">${sub}${hs.started && lv !== 'good' ? ' <a href="#" data-act="why">看原因</a>' : ''}</p></div></section>`);
 
   // 1. 要做的事：只在真的需要時出現
   const todo = [], due = hs.daysLeft <= 0;
@@ -143,16 +146,18 @@ function home() {
     if (p.carry) body = `<p class="big-sm">先不判斷</p><p class="muted">這期併入下期，下次結算兩期一起算。</p>`;
     else if (p.unknown) body = `<p class="big-sm">無法判斷</p><p class="muted">有找不到來源的錢，這段不列入生活費統計。</p>`;
     else {
-      const over = p.E - p.budget, pct = Math.max(0, Math.min(100, p.E / p.budget * 100));
-      body = `<div class="meter ${over > 0 ? 'over' : ''}" role="img" aria-label="花了 ${fmt(p.E)}，預算 ${fmt(p.budget)}"><i style="width:${pct}%"></i></div>
-        <div class="meter-legend"><span>花了約 ${about(p.E)}</span><span>預算 ${about(p.budget)}</span></div>
-        <p style="margin:6px 0 0">${over > tol() ? `<span class="bad">多花了約 ${about(over)}</span>` : over > 0 ? `<span class="warn">多花一點點（約 ${about(over)}）</span>` : `<span class="good">比預算少花約 ${about(-over)}</span>`}</p>`;
+      const over = p.E - p.budget, pct = Math.max(0, Math.round(p.E / p.budget * 100)), lvl = over > tol() ? 'bad' : over > 0 ? 'warn' : 'good';
+      body = `<div class="ringrow"><div class="ring-wrap" role="img" aria-label="花了預算的 ${pct}%"><svg class="ring ${lvl}" viewBox="0 0 40 40" aria-hidden="true">
+          <circle class="track" cx="20" cy="20" r="16"/><circle class="val" cx="20" cy="20" r="16" pathLength="100" stroke-dasharray="${Math.min(100, pct)} 100"/></svg>
+          <span class="ring-pct num-r">${pct}<small>%</small></span></div>
+        <div class="ring-txt"><b class="num-r">花了約 ${about(p.E)}</b><span>預算 ${about(p.budget)}</span>
+          <span class="${lvl}">${over > tol() ? `多花了約 ${about(over)}` : over > 0 ? `多花一點點（約 ${about(over)}）` : `比預算少花約 ${about(-over)}`}</span></div></div>`;
     }
     last2 = `<div class="sub-block"><p class="label">上一期（${span}）</p>${body}
       <p class="muted" style="margin:6px 0 0">兼職收入約 ${about(p.actSide)}${sd < 0 ? `，比目標少 ${about(-sd)}` : '，有達標'}</p></div>`;
   }
   h.push(`<section class="card"><h3>生活費</h3>
-    <p class="label">${md(hs.nextDate)} 結算前，可以花</p><p class="big">${about(hs.nextBudget)}</p>
+    <p class="label">${md(hs.nextDate)} 結算前，可以花</p><p class="big num-r">${about(hs.nextBudget)}</p>
     <p class="muted" style="margin:0">${due ? '' : `還有 ${hs.daysLeft} 天結算　<a href="#settle">提早結算</a>`}</p>${last2}</section>`);
 
   // 3. 接下來的大筆款項：時程表（日期｜名稱｜金額＋夠不夠）
@@ -164,9 +169,10 @@ function home() {
       const o = E.eventOutlook(S, ev), left = -E.eventRemaining(S, ev);
       const chip = ev.selfFund && o.gap ? `<span class="chip warn">${ic('warn')}還差 ${about(o.gap)}</span>` : o.gap ? `<span class="chip bad">${ic('warn')}差 ${about(o.gap)}</span>` : `<span class="chip good only" role="img" aria-label="夠" title="夠">${ic('check')}</span>`;
       const note = ev.selfFund && o.gap ? `每次結算多存約 ${about(o.perSettle)}` : `${range(ev).slice(5)} 付`;
-      return `<li class="sched"><div class="mo"><b>${+ev.dateFrom.slice(5, 7)}月</b><span>${ev.dateFrom.slice(0, 4)}</span></div>
-        <div class="nm"><b>${esc(ev.name)}${ev.estimate ? '<span class="tag">暫估</span>' : ''}</b><span>${note}</span></div>
-        <div class="amt"><b>${left < 0 ? '＋' : ''}${about(left)}</b>${chip}</div></li>`;
+      const node = ev.selfFund && o.gap ? 'warn' : o.gap ? 'bad' : 'good';
+      return `<li class="sched"><div class="mo"><b class="num-r">${+ev.dateFrom.slice(5, 7)}月</b><span>${ev.dateFrom.slice(0, 4)}</span></div>
+        <div class="rail ${node}" aria-hidden="true"><i></i></div><div class="nm"><b>${esc(ev.name)}${ev.estimate ? '<span class="tag">暫估</span>' : ''}</b><span>${note}</span></div>
+        <div class="amt"><b class="num-r">${left < 0 ? '＋' : ''}${about(left)}</b>${chip}</div></li>`;
     }).join('');
     h.push(`<section class="card"><h3>接下來的大筆款項</h3><ul class="sched-list">${li}</ul>
       <p class="muted" style="margin:8px 0 0"><span class="chip good only in-text">${ic('check')}</span> 付完還留得住至少要留的 ${about(S.settings.reserve)}</p><p style="margin:4px 0 0;text-align:right"><a href="#plan">看全部款項</a></p></section>`);
