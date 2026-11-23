@@ -205,6 +205,7 @@ html[data-sandbox] main{padding-top:64px}
   padding:20px 16px calc(env(safe-area-inset-bottom) + 16px);max-width:640px;margin:0 auto}
 .sheet-box h3{font-size:20px}
 .actions.col{flex-direction:column}
+.sheet-list{margin:0 0 8px;padding-left:20px}.sheet-list li{margin:4px 0}
 button.plain{border-color:transparent}
 .danger-zone{margin-top:32px}
 .seg{display:flex;background:var(--sunk);border-radius:12px;padding:3px;gap:3px}

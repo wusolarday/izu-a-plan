@@ -219,3 +219,17 @@ test('款項：沒付過可以刪，有付款紀錄就不能刪', () => {
   assert.equal(E.canDeleteEvent(s, e1), false);
   assert.equal(E.canDeleteEvent(s, e2), true);
 });
+
+test('取消款項：已付的部分仍算，只有沒付的部分不用再存', () => {
+  const s = base(), e1 = s.events.find(e => e.id === 'e1');
+  // 12/21 先付了 2 萬（範例款項A 共 5 萬）
+  settle(s, { date: '2026-12-21', cash: 792000, side: [{ amount: 3000 }], flows: [{ kind: 'event', eventId: 'e1', amount: -20000 }] });
+  e1.status = 'partial';
+  const before = E.targetCash(s, '2026-12-21'), later = E.targetCash(s, '2027-01-21');
+  e1.status = 'cancelled';
+  assert.equal(E.targetCash(s, '2026-12-21'), before);          // 已付的 2 萬不會加回來
+  assert.equal(E.targetCash(s, '2027-01-21'), later + 30000);   // 剩下的 3 萬不用再存
+  const t = E.standing(s);
+  assert.equal(t.parts.reduce((a, x) => a + x[1], 0), t.diff);  // 差在哪裡仍然加得起來
+  assert.equal(t.diff, 0);
+});

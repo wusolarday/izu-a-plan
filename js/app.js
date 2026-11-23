@@ -616,8 +616,12 @@ const acts = {
   flowdel: el => { D.flows.splice(+el.dataset.i, 1); preview = null; settle(); }, // 草稿而已，直接拿掉
   evdel: el => {
     const ev = S.events.find(x => x.id === el.closest('form').dataset.ev), name = esc(ev.name);
-    if (!E.canDeleteEvent(S, ev)) return sheet(`<h3>「${name}」不能刪除</h3><p>已經有結算紀錄記了這筆的付款，刪掉會讓過去的紀錄對不上。</p>
-      <p>如果這筆之後不用再付了，可以改成「取消」：過去的紀錄會留著，之後不會再問你付了沒。</p>
+    const paid = -E.eventPaid(S, ev), left = -E.eventRemaining(S, ev);
+    if (ev.status === 'paid') return sheet(`<h3>「${name}」已經付清了</h3><p>付清的款項會留在紀錄裡，不需要刪除，也不用取消。</p>
+      <div class="actions full col"><button class="pri" data-act="sheetClose">知道了</button></div>`);
+    if (!E.canDeleteEvent(S, ev)) return sheet(`<h3>「${name}」不能刪除</h3><p>已經付了 ${about(paid)}，結算紀錄裡有這筆，刪掉會讓過去的紀錄對不上。</p>
+      <p>如果剩下的不用付了，可以<b>改成取消</b>：</p><ul class="sheet-list"><li>已經付的 ${about(paid)} 是真的花掉了，<b>不會加回來</b></li><li>剩下的 ${about(left)} 不用再付，也不用再為它存錢</li><li>之後結算不會再問你付了沒</li></ul>
+      <p class="muted">如果對方退錢給你，下次結算時記在「有大筆的錢進來或出去」→「其他入帳（退款）」。</p>
       <div class="actions full col"><button class="pri" data-act="evcancel" data-id="${ev.id}">改成取消</button><button class="plain" data-act="sheetClose">先不要</button></div>`);
     sheet(`<h3>刪除「${name}」？</h3><p>這筆款項會從計畫裡拿掉，之後「應該要有的錢」和首頁的預估都會重新計算。</p>
       <div class="actions full col"><button class="danger" data-act="evdelok" data-id="${ev.id}">${ic('trash')}刪除</button><button class="plain" data-act="sheetClose">先不要</button></div>`);

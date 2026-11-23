@@ -188,7 +188,8 @@ export function targetCash(state, d) {
   const s0 = state.snapshots[0];
   let t = s0.cash + sum(regularItems(state.plan, s0.date, d), i => i.amount);
   for (const ev of state.events) {
-    if (ev.status === 'cancelled') continue;
+    // 取消＝剩下的不付了；已經付出去的錢是真的花掉了，仍要算進去
+    if (ev.status === 'cancelled') { t += eventPaid(state, ev, d); continue; }
     t += ev.dateTo <= d || ev.status === 'paid' ? ev.amount : eventPaid(state, ev, d);
   }
   return t;
