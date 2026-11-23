@@ -262,8 +262,10 @@ function settleSteps() {
   steps.push({ ids: ['c-other', 'd-salary', 'd-flows'], html: `${ask('這個月還有其他不一樣的嗎？', '沒有的話，直接按「看結果」。')}
     <div class="card" id="c-other"><details ${D.salary !== '' ? 'open' : ''} id="d-salary"><summary>薪水跟平常不一樣</summary><label>這個月實際領到多少（平常是 ${fmt(planSal)}）</label>${money('salary')}
       <div class="opts">${radio('salaryScope', 'once', '只有這次（請假等）')}${radio('salaryScope', 'after', '以後都是（調薪等）')}</div></details>
-    <details ${D.flows.length ? 'open' : ''} id="d-flows"><summary>有大筆的錢進來或出去</summary><p class="muted" style="margin:0">例如家人給的錢、退款、買股票、押金。平常的生活花費不用寫。</p>${D.flows.map((f, i) => `<div class="inline"><select data-k="flows.${i}.kind">${Object.entries(FLOW).map(([v, [l]]) => `<option value="${v}" ${f.kind === v ? 'selected' : ''}>${l}</option>`).join('')}</select>
-      <input inputmode="numeric" placeholder="金額" ${field(`flows.${i}.amount`)}></div><div class="echo" data-echo="flows.${i}.amount">${echo(`flows.${i}.amount`)}</div><input placeholder="備註（選填）" ${field(`flows.${i}.note`)}>`).join('<hr>')}
+    <details ${D.flows.length ? 'open' : ''} id="d-flows"><summary>有大筆的錢進來或出去</summary><p class="muted" style="margin:0">例如家人給的錢、退款、買股票、押金。平常的生活花費不用寫。</p>${D.flows.map((f, i) => `<div class="flowrow"><div class="flowhead"><b>第 ${i + 1} 筆</b>${iconBtn('trash', '刪除這一筆', `data-act="flowdel" data-i="${i}"`)}</div>
+      <label>是什麼錢</label><select data-k="flows.${i}.kind">${Object.entries(FLOW).filter(([v]) => v !== 'unknownIn' || f.kind === v).map(([v, [l]]) => `<option value="${v}" ${f.kind === v ? 'selected' : ''}>${l}</option>`).join('')}</select>
+      <label>金額</label><input inputmode="numeric" ${field(`flows.${i}.amount`)}><div class="echo" data-echo="flows.${i}.amount">${echo(`flows.${i}.amount`)}</div>
+      <label>備註（選填）</label><input ${field(`flows.${i}.note`)}></div>`).join('')}
       <div class="actions"><button class="small" data-act="addflow">${ic('plus')}新增一筆</button></div></details></div>` });
   steps.push({ ids: ['result'], html: `${ask('這個月的結果')}<div id="preview"></div><div class="hint" id="cf-hint"></div>` });
   return steps;
@@ -427,7 +429,7 @@ async function undoLast() {
   const s = lastSnap();
   if (s.start) return alert('起點不能撤回。');
   if (!confirm(`撤回 ${ymd(s.date)} 的結算？資料會回到結算前，可重新填寫。`)) return;
-  for (const e of s.applied?.events || []) Object.assign(S.events.find(x => x.id === e.id), e.prev);
+  for (const e of s.applied?.events || []) { const ev = S.events.find(x => x.id === e.id); if (ev) Object.assign(ev, e.prev); }
   for (const c of s.applied?.plan || []) S.plan[c.key] = S.plan[c.key].filter(x => x !== c.entry && JSON.stringify(x) !== JSON.stringify(c.entry));
   S.sideItems = S.sideItems.filter(i => !(s.applied?.sideItems || []).includes(i.id));
   S.snapshots.pop();
@@ -484,7 +486,7 @@ function plan() {
     <label>狀態</label><select name="status">${Object.entries(STATUS).map(([v, l]) => `<option value="${v}" ${ev.status === v ? 'selected' : ''}>${l}</option>`).join('')}</select>
     <label class="opts"><input type="checkbox" name="estimate" ${ev.estimate ? 'checked' : ''}> 金額還是暫估的</label>
     <div class="muted">已付 ${fmt(-E.eventPaid(S, ev))}（從結算紀錄算出來）</div>
-    <div class="actions"><button class="pri" data-act="evsave">儲存</button></div></form></details></div>`).join('')}
+    <div class="actions"><button class="pri" data-act="evsave">儲存</button><button class="danger" data-act="evdel">${ic('trash')}刪除</button></div></form></details></div>`).join('')}
     <div class="actions"><button data-act="evadd">${ic('plus')}新增款項</button></div>
   <h2>至少要留的錢</h2><form class="card" id="resf"><p class="muted" style="margin:0">付完大筆款項後，帳戶裡至少要剩多少才安心（備用金）。</p>
     <input name="reserve" inputmode="numeric" value="${S.settings.reserve}"><div class="actions"><button class="pri" data-act="ressave">儲存</button></div></form>`;
@@ -611,6 +613,17 @@ const acts = {
   sideadd: async () => { const name = $('#sn').value.trim(), amount = num($('#sa').value) || 0; if (!name) return; S.sideItems.push({ id: uid('i'), name, kind: 'monthly', amount, active: true }); await commit('新增兼職 ' + name); render(); },
   sidetoggle: async el => { const i = S.sideItems.find(x => x.id === el.dataset.id); i.active = !i.active; await commit('切換兼職 ' + i.name); render(); },
   evadd: async () => { const t = today(); S.events.push({ id: uid('e'), name: '新款項', type: 'other', amount: 0, dateFrom: t, dateTo: t, status: 'planned' }); await commit('新增事件'); render(); },
+  flowdel: el => { D.flows.splice(+el.dataset.i, 1); preview = null; settle(); }, // 草稿而已，直接拿掉
+  evdel: el => {
+    const ev = S.events.find(x => x.id === el.closest('form').dataset.ev), name = esc(ev.name);
+    if (!E.canDeleteEvent(S, ev)) return sheet(`<h3>「${name}」不能刪除</h3><p>已經有結算紀錄記了這筆的付款，刪掉會讓過去的紀錄對不上。</p>
+      <p>如果這筆之後不用再付了，可以改成「取消」：過去的紀錄會留著，之後不會再問你付了沒。</p>
+      <div class="actions full col"><button class="pri" data-act="evcancel" data-id="${ev.id}">改成取消</button><button class="plain" data-act="sheetClose">先不要</button></div>`);
+    sheet(`<h3>刪除「${name}」？</h3><p>這筆款項會從計畫裡拿掉，之後「應該要有的錢」和首頁的預估都會重新計算。</p>
+      <div class="actions full col"><button class="danger" data-act="evdelok" data-id="${ev.id}">${ic('trash')}刪除</button><button class="plain" data-act="sheetClose">先不要</button></div>`);
+  },
+  evdelok: async el => { const ev = S.events.find(x => x.id === el.dataset.id); S.events = S.events.filter(x => x !== ev); sheet(''); await commit(`刪除款項 ${ev.name}`); render(); toast('已刪除'); },
+  evcancel: async el => { const ev = S.events.find(x => x.id === el.dataset.id); ev.status = 'cancelled'; sheet(''); await commit(`取消款項 ${ev.name}`); render(); toast('已改成取消'); },
   evsave: async el => {
     const form = el.closest('form'), f = new FormData(form), ev = S.events.find(x => x.id === form.dataset.ev);
     const before = JSON.stringify(ev);

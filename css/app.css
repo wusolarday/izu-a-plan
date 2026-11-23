@@ -119,6 +119,10 @@ button .ic,.btn .ic{margin:0 2px}
 .switch.on{background:var(--good)}.switch.on i{transform:translateX(20px)}
 .switch:active:not(:disabled){transform:none}
 
+.flowrow{background:var(--sunk);border-radius:12px;padding:6px 12px 12px;margin:10px 0}
+.flowhead{display:flex;justify-content:space-between;align-items:center}
+.flowhead .icon-btn{color:var(--bad-t);border-color:transparent}
+
 /* ---- 表單 ---- */
 label{display:block;margin:12px 0 4px;font-size:15px;color:var(--muted)}
 input,select{width:100%;font:inherit;font-size:18px;padding:12px;border:1px solid var(--line);border-radius:12px;background:var(--surface);color:var(--ink)}

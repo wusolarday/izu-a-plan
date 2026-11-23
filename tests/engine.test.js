@@ -212,3 +212,10 @@ test('計畫頁直接改：從下一期起生效，可撤回，可跟原計畫�
   s.plan = E.removePlanChange(s.plan, 'living', '2027-01');
   assert.equal(E.planCompare(s, '2027-06-30').diff, 0);
 });
+
+test('款項：沒付過可以刪，有付款紀錄就不能刪', () => {
+  const s = base(), e1 = s.events.find(e => e.id === 'e1'), e2 = s.events.find(e => e.id === 'e2');
+  settle(s, { date: '2026-12-21', cash: 762000, side: [{ amount: 3000 }], flows: [{ kind: 'event', eventId: 'e1', amount: -50000 }] });
+  assert.equal(E.canDeleteEvent(s, e1), false);
+  assert.equal(E.canDeleteEvent(s, e2), true);
+});

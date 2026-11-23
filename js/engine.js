@@ -71,6 +71,8 @@ export function planCompare(state, d) {
 /** 事件已付金額：唯一來源是結算紀錄裡 kind='event' 的流量 */
 export const eventPaid = (state, ev, upTo = '9999-12-31') =>
   sum(state.snapshots.filter(s => s.date <= upTo), s => sum((s.flows || []).filter(f => f.eventId === ev.id), f => f.amount));
+/** 款項能不能刪：結算紀錄裡已經有它的付款就不能刪（會讓過去的紀錄對不上），只能改成「取消」 */
+export const canDeleteEvent = (state, ev) => !state.snapshots.some(s => (s.flows || []).some(f => f.eventId === ev.id));
 export const isOpen = ev => ev.status !== 'paid' && ev.status !== 'cancelled';
 export const eventRemaining = (state, ev) => (isOpen(ev) ? ev.amount - eventPaid(state, ev) : 0);
 
