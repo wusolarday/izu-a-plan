@@ -24,6 +24,7 @@ const tol = () => S.settings.tolerance;
 // 圖示：線條 24×24，跟著文字顏色。只用大家一看就懂的（勾、鉛筆、回復、雲…）
 const ICON = {
   check: '<path d="M5 12.5l4.5 4.5L19 7.5"/>',
+  refresh: '<path d="M20 11a8 8 0 00-14.3-4.9L4 8"/><path d="M4 3.5V8h4.5"/><path d="M4 13a8 8 0 0014.3 4.9L20 16"/><path d="M20 20.5V16h-4.5"/>',
   star: '<path d="M12 3.5l2.6 5.4 5.9.8-4.3 4.1 1 5.8L12 16.9l-5.2 2.7 1-5.8-4.3-4.1 5.9-.8z"/>',
   pencil: '<path d="M4 20h4L19 9l-4-4L4 16v4z"/><path d="M13.5 6.5l4 4"/>',
   undo: '<path d="M9 14L4 9l5-5"/><path d="M4 9h10a6 6 0 010 12h-3"/>',
@@ -169,7 +170,7 @@ const once = (key, val) => { try { if (localStorage.getItem(key) === val) return
 
 // 手動檢查更新：讀線上的版本號（sw.js 不在快取裡，一定從網路拿），再請 Service Worker 下載新版
 async function checkUpdate(btn) {
-  if (btn) { btn.disabled = true; btn.lastChild.textContent = '檢查中…'; }
+  btn?.classList.add('spin'); if (btn) btn.disabled = true;
   try {
     const txt = await (await fetch('sw.js?t=' + Date.now(), { cache: 'no-store' })).text();
     const latest = (txt.match(/VERSION = '([^']+)'/) || [])[1];
@@ -187,7 +188,7 @@ async function checkUpdate(btn) {
   } catch (e) {
     toast('沒有網路，等一下再試');
   } finally {
-    if (btn?.isConnected) { btn.disabled = false; btn.lastChild.textContent = '檢查更新'; }
+    if (btn) { btn.disabled = false; btn.classList.remove('spin'); }
   }
 }
 
@@ -676,7 +677,7 @@ function settings() {
       <label>股票賣掉，大概能拿回幾成（0～1，例如 0.8＝八成）</label><input name="stockHaircut" inputmode="decimal" value="${st.stockHaircut}">
       <div class="actions"><button class="pri" data-act="rulesave">儲存</button></div></form></details>
     <div class="card danger-zone"><h3>清除資料</h3><p class="muted" style="margin:0">刪掉這台手機上的全部 A計畫 資料。建議先備份。</p><div class="actions"><button class="danger" data-act="reset">${ic('trash')}清除全部資料</button></div></div>
-    <div class="ver"><span class="muted">版本 ${VERSION}</span><button class="small" data-act="checkUpdate">${ic('restore')}檢查更新</button></div>`;
+    <div class="ver"><span class="muted">版本 ${VERSION}</span>${iconBtn('refresh', '檢查更新', 'data-act="checkUpdate"')}</div>`;
   navigator.storage?.persisted?.().then(v => { const e = $('#pst'); if (e) e.textContent = v ? '' : '（手機可能會在空間不足時清掉資料，記得備份）'; });
 }
 
