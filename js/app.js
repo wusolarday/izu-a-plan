@@ -167,6 +167,30 @@ function celebrate(msg, el) {
 // 每個畫面效果只播一次（記在這台裝置）
 const once = (key, val) => { try { if (localStorage.getItem(key) === val) return false; localStorage.setItem(key, val); } catch (e) { /* 存不了就照播 */ } return true; };
 
+// 手動檢查更新：讀線上的版本號（sw.js 不在快取裡，一定從網路拿），再請 Service Worker 下載新版
+async function checkUpdate(btn) {
+  if (btn) { btn.disabled = true; btn.lastChild.textContent = '檢查中…'; }
+  try {
+    const txt = await (await fetch('sw.js?t=' + Date.now(), { cache: 'no-store' })).text();
+    const latest = (txt.match(/VERSION = '([^']+)'/) || [])[1];
+    const reg = await navigator.serviceWorker?.getRegistration();
+    if (reg) {
+      await reg.update();
+      // 新版下載需要一點時間：最多等 8 秒到它準備好
+      for (let i = 0; i < 40 && reg.installing && !reg.waiting; i++) await new Promise(r => setTimeout(r, 200));
+    }
+    if (reg?.waiting) {
+      if (await ask({ title: `有新版本 ${latest || ''}`, body: `目前是 ${VERSION}。更新後畫面會重新整理，資料不受影響。`, ok: '現在更新' })) reg.waiting.postMessage('skip');
+    } else if (latest && latest !== VERSION) {
+      info(`線上已經有 ${latest}`, '手機還在下載新版。請把 App 完全關掉再打開，或過一下子再按一次「檢查更新」。');
+    } else toast(`已經是最新版本 ${VERSION}`, 'check');
+  } catch (e) {
+    toast('沒有網路，等一下再試');
+  } finally {
+    if (btn?.isConnected) { btn.disabled = false; btn.lastChild.textContent = '檢查更新'; }
+  }
+}
+
 // 確認：用 App 自己的下方面板，回傳 Promise。input 有值時，回傳輸入的文字
 let askRes = null;
 function ask({ title, body = '', ok = '確定', danger = false, input = '' }) {
@@ -652,7 +676,7 @@ function settings() {
       <label>股票賣掉，大概能拿回幾成（0～1，例如 0.8＝八成）</label><input name="stockHaircut" inputmode="decimal" value="${st.stockHaircut}">
       <div class="actions"><button class="pri" data-act="rulesave">儲存</button></div></form></details>
     <div class="card danger-zone"><h3>清除資料</h3><p class="muted" style="margin:0">刪掉這台手機上的全部 A計畫 資料。建議先備份。</p><div class="actions"><button class="danger" data-act="reset">${ic('trash')}清除全部資料</button></div></div>
-    <p class="muted" style="text-align:center">版本 ${VERSION}</p>`;
+    <div class="ver"><span class="muted">版本 ${VERSION}</span><button class="small" data-act="checkUpdate">${ic('restore')}檢查更新</button></div>`;
   navigator.storage?.persisted?.().then(v => { const e = $('#pst'); if (e) e.textContent = v ? '' : '（手機可能會在空間不足時清掉資料，記得備份）'; });
 }
 
@@ -701,6 +725,7 @@ const acts = {
   sbEnd: async () => { S = await DB.load('sandbox'); D = null; preview = null; await DB.save(S); await DB.clear('sandbox'); sandbox = false; sheet(''); location.hash = '#home'; render(); toast('已回到測試前的資料'); },
   sbKeep: async () => { await DB.clear('sandbox'); sandbox = false; sheet(''); render(); toast('測試結果已保留'); },
   update: () => navigator.serviceWorker.getRegistration().then(r => r?.waiting?.postMessage('skip')),
+  checkUpdate: el => checkUpdate(el),
   calc: () => { try { calc(); } catch (e) { showError(e); } },
   confirm: () => confirmSettle().catch(showError),
   ack: () => {
