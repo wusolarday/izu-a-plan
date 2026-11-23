@@ -12,10 +12,13 @@
 [data-palette=salmon]{--pri:#dd6c53;--good:#3f8f7a;--warn:#d9a514;--bad:#a3193f;
   /* 鮭魚：主色卡右側三條 S 形曲線油花（參考鮭魚切片插畫） */
   --texture:url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 140 180' fill='none' stroke='white' stroke-linecap='round'><path stroke-opacity='.42' stroke-width='9' d='M40 -10 C 78 25 18 62 58 100 S 48 160 78 195'/><path stroke-opacity='.34' stroke-width='8' d='M74 -10 C 112 25 52 62 92 100 S 82 160 112 195'/><path stroke-opacity='.26' stroke-width='7' d='M108 -10 C 146 25 86 62 126 100 S 116 160 146 195'/></svg>") right -18px center/auto 135% no-repeat}
-[data-palette=oak]{--pri:#b08657;--good:#5b8a4c;--warn:#e0a910;--bad:#b52a3a}
+[data-palette=oak]{--pri:#b08657;--good:#5b8a4c;--warn:#e0a910;--bad:#b52a3a;
+  /* 淺橡木：年輪。圓心在卡片右下角外面，弧線掃過卡片；第二組圓心稍微錯開，讓間距不規則 */
+  --texture:repeating-radial-gradient(circle at 94% 118%,transparent 0 10px,rgba(95,58,22,.17) 10px 11.5px,transparent 11.5px 15px,rgba(255,240,210,.10) 15px 16px,transparent 16px 21px),
+            repeating-radial-gradient(circle at 90% 114%,transparent 0 26px,rgba(95,58,22,.10) 26px 28px,transparent 28px 37px)}
 [data-palette=olive]{--pri:#655a49;--good:#4f8a55;--warn:#d4a126;--bad:#b3303b}
 /* 木頭系：主色卡加上很淡的木紋（其他配色 --texture 為 none） */
-[data-palette=wood],[data-palette=olive],[data-palette=oak]{--texture:repeating-linear-gradient(97deg,rgba(255,255,255,.05) 0 1px,transparent 1px 7px),repeating-linear-gradient(91deg,rgba(0,0,0,.07) 0 2px,transparent 2px 15px),repeating-linear-gradient(103deg,rgba(255,255,255,.035) 0 3px,transparent 3px 23px)}
+[data-palette=wood],[data-palette=olive]{--texture:repeating-linear-gradient(97deg,rgba(255,255,255,.05) 0 1px,transparent 1px 7px),repeating-linear-gradient(91deg,rgba(0,0,0,.07) 0 2px,transparent 2px 15px),repeating-linear-gradient(103deg,rgba(255,255,255,.035) 0 3px,transparent 3px 23px)}
 [data-palette=graphite]{--pri:#2c2c2e;--good:#3f9a62;--warn:#d49b1c;--bad:#d1343a}
 
 /* 無彩色底：bg 底色｜surface 卡片｜ink 文字（所有配色共用） */

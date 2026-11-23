@@ -101,20 +101,31 @@ function toast(msg, icon) {
 // ---------- 正向回饋：彩紙爆發 ----------
 // 只在真的值得慶祝的時候用；有開「減少動態效果」就只顯示文字。不靠外部套件，自己算重力與拋物線。
 const reducedMotion = () => matchMedia('(prefers-reduced-motion: reduce)').matches;
-// 紙片的樣子跟著配色：鮭魚＝鮭魚片、木頭系＝樹葉、其他＝淺黃到金黃紙片
+// 紙片的樣子跟著配色：鮭魚＝鮭魚片、淺橡木＝松果、胡桃木／灰橡木＝樹葉、其他＝淺黃到金黃紙片
 // drag：空氣阻力係數（越大飄越慢）；sway：左右擺盪幅度
 const PIECES = {
   paper: { n: 110, size: [6, 12, 9, 18], drag: [3.2, 4.2], sway: 14, colors: ['#fff6c2', '#ffec99', '#ffe066', '#fcd34d', '#f6c445', '#eab308', '#d4a017'] },
   leaf: { n: 55, size: [10, 16, 16, 24], drag: [4.2, 5.6], sway: 26, colors: ['#7f9a3e', '#9bb04a', '#c3a33a', '#d98c2b', '#b8662a', '#a7b04a', '#6f8a3a'] },
+  cone: { n: 38, size: [12, 16, 18, 25], drag: [2.3, 3.0], sway: 7, colors: ['#8b5a2b', '#a0682f', '#7a4b22', '#b07a3e'] },
   salmon: { n: 40, size: [20, 28, 12, 17], drag: [2.6, 3.4], sway: 10, colors: ['#f4895c', '#f79a6e', '#ee7a4f', '#fa9f78'] },
 };
-const pieceKind = () => { const p = document.documentElement.dataset.palette; return p === 'salmon' ? 'salmon' : ['wood', 'olive', 'oak'].includes(p) ? 'leaf' : 'paper'; };
+const pieceKind = () => { const p = document.documentElement.dataset.palette; return p === 'salmon' ? 'salmon' : p === 'oak' ? 'cone' : ['wood', 'olive'].includes(p) ? 'leaf' : 'paper'; };
 function drawPiece(ctx, kind, w, h, c) {
   ctx.fillStyle = c;
   if (kind === 'paper') { ctx.fillRect(-w / 2, -h / 2, w, h); return; }
   if (kind === 'leaf') { // 葉片＋中間葉脈
     ctx.beginPath(); ctx.moveTo(0, -h / 2); ctx.quadraticCurveTo(w / 2, -h * 0.05, 0, h / 2); ctx.quadraticCurveTo(-w / 2, -h * 0.05, 0, -h / 2); ctx.fill();
     ctx.strokeStyle = 'rgba(60,40,10,.28)'; ctx.lineWidth = 1; ctx.beginPath(); ctx.moveTo(0, -h / 2 + 2); ctx.lineTo(0, h / 2 + 3); ctx.stroke();
+    return;
+  }
+  if (kind === 'cone') { // 松果：橢圓身體＋一排排鱗片＋頂端小梗
+    ctx.beginPath(); ctx.ellipse(0, 0, w / 2, h / 2, 0, 0, Math.PI * 2); ctx.fill();
+    ctx.strokeStyle = 'rgba(255,228,185,.55)'; ctx.lineWidth = 1.1;
+    for (let row = -2; row <= 2; row++) {
+      const y = row * h * 0.17, half = (w / 2) * Math.sqrt(Math.max(0, 1 - (y / (h / 2)) ** 2)) * 0.92, step = w / 3.2, off = row % 2 ? step / 2 : 0;
+      for (let x = -half + off; x < half - 1; x += step) { ctx.beginPath(); ctx.moveTo(x, y); ctx.quadraticCurveTo(x + step / 2, y + h * 0.13, x + step, y); ctx.stroke(); }
+    }
+    ctx.strokeStyle = '#5b3a1a'; ctx.lineWidth = 1.6; ctx.beginPath(); ctx.moveTo(0, -h / 2); ctx.lineTo(0.5, -h / 2 - 3.5); ctx.stroke();
     return;
   }
   // 鮭魚片：圓角的肉塊＋兩條白色彎曲油花
@@ -310,7 +321,7 @@ function spendRing(p, label) {
   return `<div class="ringrow"><div class="ring-wrap sm" role="img" aria-label="花了預算的 ${pct}%"><svg class="ring ${lvl}" viewBox="0 0 40 40" aria-hidden="true">
       <circle class="track" cx="20" cy="20" r="16"/><circle class="val" cx="20" cy="20" r="16" pathLength="100" stroke-dasharray="${Math.min(100, pct)} 100"/></svg>
       <span class="ring-pct num-r">${pct}<small>%</small></span></div>
-    <div class="ring-txt"><span class="ink">${label}花了 <b class="num-r">${about(p.E)}</b></span><span class="chip ${lvl}">${over > 0 ? `多花 ${about(over)}` : `少花 ${about(-over)}`}</span></div></div>`;
+    <div class="ring-txt"><span class="ink">${label}花了 <b class="num-r">${about(p.E)}</b></span><span class="chip ${lvl}">${Math.round(over) === 0 ? '剛好用完預算' : over > 0 ? `多花 ${about(over)}` : `少花 ${about(-over)}`}</span></div></div>`;
 }
 
 // 看詳細數字：精確金額、為什麼多存／少存、相對原計畫
