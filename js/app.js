@@ -140,22 +140,8 @@ function home() {
   if (ago == null || ago > 35) todo.push(`<div class="row"><div class="what"><b>${lb ? `上次備份是 ${ago} 天前` : '還沒有備份過'}</b><span>資料只在這台手機，備份到 iCloud 雲碟比較安心</span></div><button class="pri small" data-act="backup">${ic('cloud')}備份</button></div>`);
   if (todo.length) h.push(`<section class="card todo"><h3>要做的事</h3>${todo.join('')}</section>`);
 
-  // 2. 生活費：主＝接下來可以花多少；次＝上個月花了多少（一行＋一個標籤）
-  let last2 = '';
-  if (p) {
-    let ring = '', line, tag = '';
-    if (p.carry) line = '上個月先不判斷，下次兩期一起算';
-    else if (p.unknown) line = '上個月有找不到來源的錢，不列入';
-    else {
-      const over = p.E - p.budget, pct = Math.max(0, Math.round(p.E / p.budget * 100)), lvl = over > tol() ? 'bad' : over > 0 ? 'warn' : 'good';
-      ring = `<div class="ring-wrap sm" role="img" aria-label="花了預算的 ${pct}%"><svg class="ring ${lvl}" viewBox="0 0 40 40" aria-hidden="true">
-        <circle class="track" cx="20" cy="20" r="16"/><circle class="val" cx="20" cy="20" r="16" pathLength="100" stroke-dasharray="${Math.min(100, pct)} 100"/></svg>
-        <span class="ring-pct num-r">${pct}<small>%</small></span></div>`;
-      line = `上個月花了 <b class="num-r">${about(p.E)}</b>`;
-      tag = `<span class="chip ${lvl}">${over > 0 ? `多花 ${about(over)}` : `少花 ${about(-over)}`}</span>`;
-    }
-    last2 = `<div class="sub-block ringrow">${ring}<div class="ring-txt"><span class="ink">${line}</span>${tag}</div></div>`;
-  }
+  // 2. 生活費：主＝接下來可以花多少；次＝上個月花了多少（圓環＋一行＋標籤）
+  const last2 = p ? `<div class="sub-block">${spendRing(p, '上個月')}</div>` : '';
   h.push(`<section class="card"><h3>生活費</h3>
     <div class="lead"><p class="label">${md(hs.nextDate)} 前可以花</p>${due ? '' : `<span class="muted">還有 ${hs.daysLeft} 天</span>`}</div>
     <p class="big num-r">${about(hs.nextBudget)}</p>${last2}</section>`);
@@ -180,6 +166,17 @@ function home() {
   h.push(detailHtml(last));
   if (!due) h.push('<p class="foot-link"><a href="#settle">提早結算</a></p>');
   app.innerHTML = h.join('');
+}
+
+// 生活費圓環：首頁與紀錄頁共用
+function spendRing(p, label) {
+  if (p.carry) return `<p class="ink-line">${label}先不判斷，下次兩期一起算</p>`;
+  if (p.unknown) return `<p class="ink-line">${label}有找不到來源的錢，不列入</p>`;
+  const over = p.E - p.budget, pct = Math.max(0, Math.round(p.E / p.budget * 100)), lvl = over > tol() ? 'bad' : over > 0 ? 'warn' : 'good';
+  return `<div class="ringrow"><div class="ring-wrap sm" role="img" aria-label="花了預算的 ${pct}%"><svg class="ring ${lvl}" viewBox="0 0 40 40" aria-hidden="true">
+      <circle class="track" cx="20" cy="20" r="16"/><circle class="val" cx="20" cy="20" r="16" pathLength="100" stroke-dasharray="${Math.min(100, pct)} 100"/></svg>
+      <span class="ring-pct num-r">${pct}<small>%</small></span></div>
+    <div class="ring-txt"><span class="ink">${label}花了 <b class="num-r">${about(p.E)}</b></span><span class="chip ${lvl}">${over > 0 ? `多花 ${about(over)}` : `少花 ${about(-over)}`}</span></div></div>`;
 }
 
 // 看詳細數字：精確金額、為什麼多存／少存、相對原計畫
@@ -364,23 +361,21 @@ function showError(e) {
   card.scrollIntoView({ behavior: 'smooth', block: 'start' });
 }
 
-const verdict = over => Math.round(over) === 0 ? '<span class="good">剛好等於預算</span>' : over < 0
-  ? `<span class="good">比預算少花 ${fmt(-over)}</span>`
-  : over <= tol() ? `<span class="warn">比預算多花 ${fmt(over)}（容許範圍內）</span>` : `<span class="bad">比預算多花 ${fmt(over)}</span>`;
 
+const resultHero = (lvl, lead, amt, icon, tag) => `<section class="hero ${lvl}"><div class="hero-card"><p class="lead-t">${lead}</p><p class="hero-amt num-r">${amt}</p><p class="hero-tag"><span class="pill">${ic(icon)}${tag}</span></p></div></section>`;
 function showPreview() {
   const { p, check, early, snap } = preview, over = p.E - p.budget, prev = p.startCash;
   const expected = snap.cash + p.E;
-  const h = [`<div class="card"><h3>這期的錢怎麼變化</h3>`];
+  const h = [];
   if (early) h.push(`<div class="note bad">距上次結算只有 ${Math.round((Date.parse(p.to) - Date.parse(p.from)) / 864e5)} 天，不是完整週期（預定 ${ymd(E.nextDue(S))}），生活費無法判斷。若只是想看看，請按「清除草稿」。</div>`);
-  h.push(rows([
+  const table = rows([
     [p.merged ? `上上次現金（${md(p.from)}，上期併入）` : `上次現金（${md(p.from)}）`, fmt(prev)],
     [`＋ 薪資（${p.actSalary === p.planSalary ? '照計畫' : '已更正'}）`, fmt(p.actSalary)],
     p.actSide ? ['＋ 兼職', fmt(p.actSide)] : null, p.actBonus ? ['＋ 年終', fmt(p.actBonus)] : null, p.oneOff ? ['＋ 一次性收入', fmt(p.oneOff)] : null,
     ['－ 信貸月付', fmt(p.loanPay)], p.nonLiving ? ['± 事件與其他大筆進出', sgn(p.nonLiving)] : null,
-    ['＝ 完全沒花錢的話，應該有', fmt(expected), 'sum'], [`實際現金（${md(p.to)}）`, fmt(snap.cash)]]));
+    ['＝ 完全沒花錢的話，應該有', fmt(expected), 'sum'], [`實際現金（${md(p.to)}）`, fmt(snap.cash)]]);
   if (p.carry) {
-    h.push(`<div class="big" style="margin-top:10px">本期生活費 併入下期</div><div class="note info">這期先不判斷生活費。下次結算時，兩期合併計算、跟兩期預算比。超前／落後照常計算。
+    h.push(`${resultHero('none', '這個月生活費', '先不判斷', 'clock', '併入下期，下次兩期一起算')}<div class="note info">這期先不判斷生活費。下次結算時，兩期合併計算、跟兩期預算比。超前／落後照常計算。
       <div class="actions"><button class="small" data-act="uncarry">取消併入</button></div></div>`);
   } else if (p.E < 0) {
     const gap = -p.E, again = p.merged > 1;
@@ -396,15 +391,16 @@ function showPreview() {
         <div class="echo" id="fix-echo">${fixEcho()}</div>
         <div class="actions full"><button class="pri" data-act="fixadd">加入並重新試算</button></div></div>` : ''}</div>`);
   } else {
-    if (p.unknown) h.push(`<div class="big" style="margin-top:10px">本期生活費 無法判斷</div><div class="note info">有找不到來源的錢（金額不明），這段期間的生活費不列入統計。超前／落後照常計算。之後想起來，到「其他大筆進出」改類型就好。</div>`);
-    else h.push(`<div class="muted" style="margin-top:10px">應有 − 實際 ＝ ${p.merged ? `這 ${p.merged} 期` : '這期'}花掉的錢</div><div class="big">${p.merged ? '兩期合計' : '本期'}生活費 ${fmt(p.E)}</div><div>預算 ${fmt(p.budget)}・${verdict(over)}</div>`);
+    if (p.unknown) h.push(`${resultHero('none', '這個月生活費', '無法判斷', 'clock', '不列入生活費統計')}<div class="note info">有找不到來源的錢（金額不明），這段期間的生活費不列入統計。超前／落後照常計算。之後想起來，到「其他大筆進出」改類型就好。</div>`);
+    else { const lvl = over > tol() ? 'bad' : over > 0 ? 'warn' : 'good';
+      h.push(resultHero(lvl, `${p.merged ? `這 ${p.merged} 期合計` : '這個月'}生活費`, `約 ${about(p.E)}`, lvl === 'good' ? 'check' : 'warn', `預算 ${about(p.budget)}，${over > 0 ? `多花 ${about(over)}` : `少花 ${about(-over)}`}`)); }
     if (check && !D.ack) h.push(over > 0
       ? `<div class="note">多花了 ${fmt(over)}。如果其中有不是生活費的支出（押金、買股、提前還款），請記到「其他大筆進出」；薪資少領請填「收入有變動」。
         <div class="actions"><button class="small" data-act="open" data-id="d-flows">有其他大筆支出</button><button class="small" data-act="open" data-id="d-salary">薪資少領</button><button class="small" data-act="ack">沒有，就是這樣花的</button></div></div>`
       : `<div class="note">比預算少花很多（${fmt(-over)}）。如果有收入沒記（年終、資助、退款），請補上，不然會被當成省下來的錢。
         <div class="actions"><button class="small" data-act="open" data-id="d-flows">有收入沒記</button><button class="small" data-act="ack">沒有，真的省下來了</button></div></div>`);
   }
-  $('#preview').innerHTML = h.join('') + '</div>';
+  $('#preview').innerHTML = h.join('') + `<details class="more"><summary>這期的錢怎麼變化</summary><div class="card">${table}<p class="muted" style="margin:8px 0 0">完全沒花錢的話應該有的錢，減掉實際的錢，就是這期花掉的錢。</p></div></details>`;
   setConfirm();
 }
 
@@ -447,11 +443,15 @@ async function undoLast() {
 // ---------- 紀錄 ----------
 function history() {
   const r = E.progress(S);
-  app.innerHTML = `<h2>結算紀錄</h2>${r.periods.slice().reverse().map(p => `<div class="card"><h3>${ymd(p.to)}<span class="muted">（${md(p.from)}→${md(p.to)}）</span></h3>
-    ${rows([['生活費', livingText(p) + ' / ' + fmt(p.budget)], p.merged ? ['合併計算', `${p.merged} 次結算`] : null, ['兼職', fmt(p.actSide) + ' / ' + fmt(p.planSide)], p.salaryDiff ? ['薪資差異', sgn(p.salaryDiff)] : null,
-      p.actBonus ? ['年終', fmt(p.actBonus)] : null, ...p.flows.map(f => f.kind === 'unknownIn' ? ['找不到來源的錢', '金額不明'] : [f.kind === 'event' ? esc(S.events.find(e => e.id === f.eventId)?.name) : (FLOW[f.kind]?.[0] || f.kind) + (f.note ? '・' + esc(f.note) : ''), sgn(f.amount)])])}</div>`).join('')}
-    <div class="card muted">起點 ${ymd(S.snapshots[0].date)}・現金 ${fmt(S.snapshots[0].cash)}</div>
-    ${S.snapshots.length > 1 ? `<div class="actions"><button class="danger" data-act="undo">${ic('undo')}撤回最近一次結算</button></div>` : ''}`;
+  const card = p => {
+    const more = [['兼職', `${fmt(p.actSide)}（目標 ${fmt(p.planSide)}）`], p.salaryDiff ? ['薪資跟計畫差', sgn(p.salaryDiff)] : null, p.actBonus ? ['年終', fmt(p.actBonus)] : null,
+      ...p.flows.map(f => f.kind === 'unknownIn' ? ['找不到來源的錢', '金額不明'] : [f.kind === 'event' ? esc(S.events.find(e => e.id === f.eventId)?.name || '（已刪除的款項）') : (FLOW[f.kind]?.[0] || f.kind) + (f.note ? '，' + esc(f.note) : ''), sgn(f.amount)])].filter(Boolean);
+    return `<section class="card"><div class="hist-head"><b class="num-r">${ymd(p.to)}</b><span>${md(p.from)}～${md(p.to)}${p.merged ? `，${p.merged} 次一起算` : ''}</span></div>
+      ${spendRing(p, '生活費')}<details><summary>明細</summary>${rows([['生活費預算', fmt(p.budget)], ...more])}</details></section>`;
+  };
+  app.innerHTML = `<h2>紀錄</h2>${r.periods.slice().reverse().map(card).join('') || '<p class="muted">還沒有結算過。</p>'}
+    <p class="muted" style="text-align:center">起點 ${ymd(S.snapshots[0].date)}，現金 ${fmt(S.snapshots[0].cash)}</p>
+    ${S.snapshots.length > 1 ? `<div class="actions" style="justify-content:center"><button class="danger" data-act="undo">${ic('undo')}撤回最近一次結算</button></div>` : ''}`;
 }
 
 // ---------- 計畫：我的計畫一頁看完 ----------
@@ -498,8 +498,8 @@ function plan() {
   app.innerHTML = `<h2>我的計畫</h2>
   <section class="card"><h3>每個月的收入</h3>${prow('salary')}${prow('side')}${prow('bonus')}</section>
   <section class="card"><h3>每個月的支出</h3>${prow('living')}${loans}</section>
-  ${cmp ? `<section class="card"><h3>跟原本的計畫比</h3><p style="margin:0">照現在的計畫，到 ${ymd(cmp.date)} 會比原本<b class="${cmp.diff >= 0 ? 'good' : 'bad'}">${cmp.diff >= 0 ? '多' : '少'}存約 ${about(cmp.diff)}</b>。</p>
-    <details><summary>改過哪些地方</summary><ul class="plain-list">${hist.map(({ k, d, c }) => `<li><span>${ym(c.from)} 起，${d.label}改成 <b class="num">${fmt(c.amount)}</b></span>${c.from >= fm ? iconBtn('undo', '撤回這個修改', `data-act="pundo" data-key="${k}" data-from="${c.from}"`) : '<span class="muted">已生效</span>'}</li>`).join('')}</ul></details></section>` : ''}
+  ${cmp ? `<section class="hero ${cmp.diff >= 0 ? 'good' : 'bad'}"><div class="hero-card"><p class="when">跟原本的計畫比</p><p class="lead-t">到 ${ymd(cmp.date)}，會比原本</p><p class="hero-amt mid num-r">${cmp.diff >= 0 ? '多' : '少'}存約 ${about(cmp.diff)}</p>
+    <details><summary>改過哪些地方</summary><ul class="plain-list">${hist.map(({ k, d, c }) => `<li><span>${ym(c.from)} 起，${d.label}改成 <b class="num">${fmt(c.amount)}</b></span>${c.from >= fm ? iconBtn('undo', '撤回這個修改', `data-act="pundo" data-key="${k}" data-from="${c.from}"`) : '<span class="muted">已生效</span>'}</li>`).join('')}</ul></details></div></section>` : ''}
   <div class="card"><h3>兼職項目</h3><div class="list">${S.sideItems.map(i => `<div class="item"><span>${esc(i.name)}<span class="muted">　${i.kind === 'monthly' ? `每月 ${fmt(i.amount)}` : '單次'}${i.active ? '' : '，已停用'}</span></span>
       <button class="switch ${i.active ? 'on' : ''}" role="switch" aria-checked="${i.active}" aria-label="${esc(i.name)}" data-act="sidetoggle" data-id="${i.id}"><i></i></button></div>`).join('')}</div>
     <details><summary>新增每月兼職</summary><div class="inline"><input id="sn" placeholder="名稱"><input id="sa" inputmode="numeric" placeholder="每月金額"></div>
@@ -678,7 +678,7 @@ const onInput = e => {
   const ce = e.target.closest('.card.err');
   if (ce) { ce.classList.remove('err'); ce.querySelector('.err-msg')?.remove(); }
   if (e.type === 'change' && (e.target.type === 'radio' || k === 'date')) { preview = null; settle(); }
-  else if (preview) { preview = null; $('#preview').innerHTML = ''; setConfirm(); }
+  else if (preview) { preview = null; const pv = $('#preview'); if (pv) pv.innerHTML = ''; setConfirm(); } // 一頁一題：結果頁不在畫面上時也不能出錯
   clearTimeout(saveT); saveT = setTimeout(() => { S.draft = D; DB.save(S); }, 400);
 };
 document.addEventListener('submit', e => e.preventDefault()); // 按 Enter 不要重新整理頁面

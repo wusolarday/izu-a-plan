@@ -11,7 +11,7 @@
   --on-pri:#fff;
   /* 文字、外框用的顏色：淺色＝標準色；深色時稍微調亮，深灰底上才看得清楚（按鈕底色、進度條仍用標準色） */
   --pri-t:var(--pri);--good-t:var(--good);--warn-t:color-mix(in srgb,var(--warn) 70%,#000);--bad-t:var(--bad);
-  --r:14px;--tab:64px;
+  --r:16px;--tab:60px;
   /* 材質：淡陰影讓卡片浮起來；毛玻璃給浮在內容上的東西（分頁列、面板、提示） */
   --shadow:0 1px 2px rgba(0,0,0,.04),0 6px 20px rgba(0,0,0,.05);
   --shadow-lg:0 -1px 0 rgba(255,255,255,.6) inset,0 12px 40px rgba(0,0,0,.18);
@@ -31,20 +31,22 @@ html[data-mode=dark]{color-scheme:dark;
 *{box-sizing:border-box}
 html{-webkit-text-size-adjust:100%;-webkit-tap-highlight-color:transparent}
 body{margin:0;font:17px/1.6 -apple-system,BlinkMacSystemFont,"PingFang TC","Noto Sans TC",sans-serif;background:var(--bg);color:var(--ink);
-  padding:env(safe-area-inset-top) 0 calc(var(--tab) + env(safe-area-inset-bottom) + 16px)}
+  padding:env(safe-area-inset-top) 0 calc(var(--tab) + env(safe-area-inset-bottom) + 32px)}
 a{color:var(--pri-t)}
 :focus-visible{outline:3px solid var(--pri-t);outline-offset:2px}
 
 /* 底部分頁列：拇指按得到 */
-.tabs{position:fixed;left:0;right:0;bottom:0;z-index:5;display:flex;background:var(--glass);-webkit-backdrop-filter:var(--blur);backdrop-filter:var(--blur);border-top:.5px solid var(--hair);
-  padding-bottom:env(safe-area-inset-bottom)}
+.tabs{position:fixed;left:12px;right:12px;bottom:calc(env(safe-area-inset-bottom) + 8px);z-index:5;display:flex;max-width:480px;margin:0 auto;
+  background:var(--glass);-webkit-backdrop-filter:var(--blur);backdrop-filter:var(--blur);border:.5px solid var(--hair);border-radius:28px;
+  box-shadow:0 8px 28px rgba(0,0,0,.14);padding:0 6px}
 .tabs a{flex:1;min-height:var(--tab);display:flex;flex-direction:column;align-items:center;justify-content:center;gap:2px;
   color:var(--muted);text-decoration:none;font-size:13px}
 .tabs a svg{width:24px;height:24px;stroke:currentColor;fill:none;stroke-width:1.8;stroke-linecap:round;stroke-linejoin:round}
 .tabs a.on{color:var(--pri-t);font-weight:600}
 
 main{max-width:640px;margin:0 auto;padding:12px 16px}
-h2{font-size:24px;line-height:1.3;margin:16px 0 12px}
+h2{font-size:21px;line-height:1.3;margin:24px 0 10px}
+main>h2:first-child{font-size:32px;font-weight:800;letter-spacing:-.02em;margin:12px 0 12px}
 h3{font-size:17px;margin:0 0 6px}
 .card{background:var(--surface);border-radius:var(--r);padding:16px;margin:12px 0;box-shadow:var(--shadow)}
 .grid{display:grid;gap:12px;grid-template-columns:1fr}
@@ -145,7 +147,7 @@ button .ic,.btn .ic{margin:0 2px}
   border:1px solid color-mix(in srgb,var(--pri) 30%,transparent);box-shadow:0 8px 20px rgba(0,0,0,.22)}
 .hero.bad .pill{background:var(--bad);color:#fff}
 /* 圓體數字（Apple 內建 ui-rounded；沒有的裝置用系統字） */
-.num-r,.hero .say b{font-family:ui-rounded,"SF Pro Rounded",-apple-system,BlinkMacSystemFont,"PingFang TC",sans-serif;font-variant-numeric:tabular-nums}
+.num-r,.prow .pv b,.rows td:last-child,.big-sm,.hist-head b{font-family:ui-rounded,"SF Pro Rounded",-apple-system,BlinkMacSystemFont,"PingFang TC",sans-serif;font-variant-numeric:tabular-nums}
 /* 生活費圓環 */
 .ringrow{display:flex;align-items:center;gap:16px;margin-top:6px}
 .ring-wrap{position:relative;width:84px;height:84px;flex:none}
@@ -163,6 +165,15 @@ button .ic,.btn .ic{margin:0 2px}
 .ring-wrap.sm{width:60px;height:60px}.ring-wrap.sm .ring-pct{font-size:15px}.ring-wrap.sm .ring-pct small{font-size:10px}
 .ring-txt{align-items:flex-start}.ring-txt .ink{color:var(--ink);font-size:16px}.ring-txt .ink b{font-size:18px}
 .foot-link{text-align:center;margin:8px 0 0;font-size:15px}
+
+.ink-line{margin:0;font-size:16px}
+.hist-head{display:flex;align-items:baseline;justify-content:space-between;gap:8px;margin-bottom:8px}.hist-head b{font-size:20px}.hist-head span{font-size:14px;color:var(--muted)}
+.hero-amt.mid{font-size:38px}
+/* 主色卡裡的展開區、清單、按鈕都跟著卡片的字色 */
+.hero-card summary{color:inherit;font-weight:600}
+.hero-card .plain-list li{border-color:color-mix(in srgb,currentColor 18%,transparent)}
+.hero-card .muted{color:inherit;opacity:.75}
+.hero-card .icon-btn{color:inherit;border-color:color-mix(in srgb,currentColor 40%,transparent)}
 
 /* 款項時間軸：一條線串起每筆，節點顏色＝夠不夠 */
 .rail{align-self:stretch;position:relative;display:flex;align-items:center;justify-content:center}
