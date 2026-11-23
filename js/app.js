@@ -269,7 +269,7 @@ function home() {
   if (todo.length) h.push(`<section class="card todo"><h3>要做的事</h3>${todo.join('')}</section>`);
 
   // 2. 生活費：主＝接下來可以花多少；次＝上個月花了多少（圓環＋一行＋標籤）
-  const last2 = p ? `<div class="sub-block">${spendRing(p, '上個月')}</div>` : '';
+  const last2 = p ? `<div class="sub-block">${spendResult(p, '上個月')}</div>` : '';
   h.push(`<section class="card"><h3>生活費</h3>
     <div class="lead"><p class="label">${md(hs.nextDate)} 前可以花</p>${due ? '' : `<span class="muted">還有 ${hs.daysLeft} 天</span>`}</div>
     <p class="big num-r">${about(hs.nextBudget)}</p>${last2}</section>`);
@@ -321,15 +321,16 @@ function countUp(el) { // 數字從 0 跳到實際金額
   requestAnimationFrame(step);
 }
 
-// 生活費圓環：首頁與紀錄頁共用
-function spendRing(p, label) {
+// 生活費結果：一個月只更新一次，不用圖表。結果當主角（省下越多字越大越開心），達成率只當小字
+function spendResult(p, label) {
   if (p.carry) return `<p class="ink-line">${label}先不判斷，下次兩期一起算</p>`;
   if (p.unknown) return `<p class="ink-line">${label}有找不到來源的錢，不列入</p>`;
   const over = p.E - p.budget, pct = Math.max(0, Math.round(p.E / p.budget * 100)), lvl = over > tol() ? 'bad' : over > 0 ? 'warn' : 'good';
-  return `<div class="ringrow"><div class="ring-wrap sm" role="img" aria-label="花了預算的 ${pct}%"><svg class="ring ${lvl}" viewBox="0 0 40 40" aria-hidden="true">
-      <circle class="track" cx="20" cy="20" r="16"/><circle class="val" cx="20" cy="20" r="16" pathLength="100" stroke-dasharray="${Math.min(100, pct)} 100"/></svg>
-      <span class="ring-pct num-r">${pct}<small>%</small></span></div>
-    <div class="ring-txt"><span class="ink">${label}花了 <b class="num-r">${about(p.E)}</b></span><span class="chip ${lvl}">${Math.round(over) === 0 ? '剛好用完預算' : over > 0 ? `多花 ${about(over)}` : `少花 ${about(-over)}`}</span></div></div>`;
+  const even = Math.round(over) === 0, icon = lvl === 'good' ? 'check' : 'warn';
+  const result = even ? '剛好用完預算' : over > 0 ? `多花 ${about(over)}` : `省下 ${about(-over)}`;
+  return `<div class="result-row"><span class="res-ic ${lvl}">${ic(icon)}</span>
+    <div class="res-txt"><span class="res-label">${label}</span><b class="res-amt num-r ${lvl}">${result}</b>
+    <span class="res-sub">花了 ${about(p.E)}，預算用了 <span class="num-r">${pct}%</span></span></div></div>`;
 }
 
 // 看詳細數字：精確金額、為什麼多存／少存、相對原計畫
@@ -607,7 +608,7 @@ function history() {
     const more = [['兼職', `${fmt(p.actSide)}（目標 ${fmt(p.planSide)}）`], p.salaryDiff ? ['薪資跟計畫差', sgn(p.salaryDiff)] : null, p.actBonus ? ['年終', fmt(p.actBonus)] : null,
       ...p.flows.map(f => f.kind === 'unknownIn' ? ['找不到來源的錢', '金額不明'] : [f.kind === 'event' ? esc(S.events.find(e => e.id === f.eventId)?.name || '（已刪除的款項）') : (FLOW[f.kind]?.[0] || f.kind) + (f.note ? '，' + esc(f.note) : ''), sgn(f.amount)])].filter(Boolean);
     return `<section class="card"><div class="hist-head"><b class="num-r">${ymd(p.to)}</b><span>${md(p.from)}～${md(p.to)}${p.merged ? `，${p.merged} 次一起算` : ''}</span></div>
-      ${spendRing(p, '生活費')}<details><summary>明細</summary>${rows([['生活費預算', fmt(p.budget)], ...more])}</details></section>`;
+      ${spendResult(p, '生活費')}<details><summary>明細</summary>${rows([['生活費預算', fmt(p.budget)], ...more])}</details></section>`;
   };
   app.innerHTML = `<h2>紀錄</h2>${r.periods.slice().reverse().map(card).join('') || '<p class="muted">還沒有結算過。</p>'}
     <p class="muted" style="text-align:center">起點 ${ymd(S.snapshots[0].date)}，現金 ${fmt(S.snapshots[0].cash)}</p>

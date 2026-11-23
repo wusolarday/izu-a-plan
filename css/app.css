@@ -148,22 +148,7 @@ button .ic,.btn .ic{margin:0 2px}
 .hero.bad .pill{background:var(--bad);color:#fff}
 /* 圓體數字（Apple 內建 ui-rounded；沒有的裝置用系統字） */
 .num-r,.prow .pv b,.rows td:last-child,.big-sm,.hist-head b{font-family:ui-rounded,"SF Pro Rounded",-apple-system,BlinkMacSystemFont,"PingFang TC",sans-serif;font-variant-numeric:tabular-nums}
-/* 生活費圓環 */
-.ringrow{display:flex;align-items:center;gap:16px;margin-top:6px}
-.ring-wrap{position:relative;width:84px;height:84px;flex:none}
-.ring{width:100%;height:100%;transform:rotate(-90deg)}
-.ring circle{fill:none;stroke-width:5;stroke-linecap:round}
-.ring .track{stroke:var(--sunk)}
-.ring .val{stroke:var(--good);animation:ring-in .9s cubic-bezier(.2,.8,.2,1)}
-.ring.warn .val{stroke:var(--warn)}.ring.bad .val{stroke:var(--bad)}
-@keyframes ring-in{from{stroke-dasharray:0 100}}
-.ring-pct{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;font-size:20px;font-weight:700}
-.ring-pct small{font-size:12px;margin-left:1px}
-.ring-txt{display:flex;flex-direction:column;gap:2px}.ring-txt b{font-size:19px}.ring-txt span{font-size:15px;color:var(--muted)}
-.ring-txt span.good{color:var(--good-t)}.ring-txt span.warn{color:var(--warn-t)}.ring-txt span.bad{color:var(--bad-t)}
 .lead{display:flex;justify-content:space-between;align-items:baseline}
-.ring-wrap.sm{width:60px;height:60px}.ring-wrap.sm .ring-pct{font-size:15px}.ring-wrap.sm .ring-pct small{font-size:10px}
-.ring-txt{align-items:flex-start}.ring-txt .ink{color:var(--ink);font-size:16px}.ring-txt .ink b{font-size:18px}
 .foot-link{text-align:center;margin:8px 0 0;font-size:15px}
 
 .ink-line{margin:0;font-size:16px}
@@ -174,6 +159,17 @@ button .ic,.btn .ic{margin:0 2px}
 .hero-card .plain-list li{border-color:color-mix(in srgb,currentColor 18%,transparent)}
 .hero-card .muted{color:inherit;opacity:.75}
 .hero-card .icon-btn{color:inherit;border-color:color-mix(in srgb,currentColor 40%,transparent)}
+
+/* 生活費結果：結果當主角＋達成率小字（不用圖表） */
+.result-row{display:flex;align-items:center;gap:14px;margin-top:4px}
+.res-ic{flex:none;width:44px;height:44px;border-radius:50%;display:flex;align-items:center;justify-content:center;background:var(--good-bg);color:var(--good-t)}
+.res-ic.warn{background:var(--warn-bg);color:var(--warn-t)}.res-ic.bad{background:var(--bad-bg);color:var(--bad-t)}
+.res-ic .ic{width:24px;height:24px;stroke-width:2.4}
+.res-txt{display:flex;flex-direction:column;line-height:1.35}
+.res-label{font-size:14px;color:var(--muted)}
+.res-amt{font-size:24px;font-weight:800;letter-spacing:-.01em}
+.res-amt.good{color:var(--good-t)}.res-amt.warn{color:var(--warn-t)}.res-amt.bad{color:var(--bad-t)}
+.res-sub{font-size:14px;color:var(--muted)}
 
 /* 款項時間軸：一條線串起每筆，節點顏色＝夠不夠 */
 .rail{align-self:stretch;position:relative;display:flex;align-items:center;justify-content:center}
@@ -293,7 +289,7 @@ button.plain{border-color:transparent}
 @keyframes chip-flash{0%,100%{box-shadow:0 0 0 0 transparent}40%{box-shadow:0 0 0 6px color-mix(in srgb,var(--good) 35%,transparent)}}
 .st.pop .ic{animation:st-pop .7s cubic-bezier(.2,.8,.2,1.4) .3s both}
 @keyframes st-pop{0%{transform:scale(.4)}60%{transform:scale(1.35)}100%{transform:scale(1)}}
-@media (prefers-reduced-motion:reduce){*{scroll-behavior:auto!important}.ring .val{animation:none}
+@media (prefers-reduced-motion:reduce){*{scroll-behavior:auto!important}
   .sheet-box{animation:fade-in .2s}#sheet.out .sheet-box{animation:fade-out .2s forwards}button:active,.btn:active{transform:none}}
 @media (prefers-reduced-transparency:reduce){
   .tabs,.sheet-box{-webkit-backdrop-filter:none;backdrop-filter:none;background:var(--surface)}
