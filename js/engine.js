@@ -39,6 +39,35 @@ export function regularItems(plan, d0, d1) {
   return out.sort((a, b) => (a.date < b.date ? -1 : a.date > b.date ? 1 : 0));
 }
 
+/** 計畫頁可以直接改的每月數字：base＝原計畫的值，ch＝之後的修改 [{from:'YYYY-MM', amount}] */
+export const PLAN_KEYS = {
+  salary: { base: 'salary', ch: 'salaryChanges', label: '薪資' },
+  side: { base: 'sideTarget', ch: 'sideChanges', label: '兼職目標' },
+  living: { base: 'living', ch: 'livingChanges', label: '生活費預算' },
+  bonus: { base: 'bonus', ch: 'bonusChanges', label: '年終' },
+};
+/** 某個月份的計畫值 */
+export const planValues = (plan, month) =>
+  Object.fromEntries(Object.entries(PLAN_KEYS).map(([k, d]) => [k, valueAt(plan[d.base], plan[d.ch], month)]));
+/** 改計畫：從 from 月起改成 amount（同月份的舊修改會被取代）。回傳新的 plan，不改原物件。 */
+export function setPlanValue(plan, key, from, amount) {
+  const d = PLAN_KEYS[key];
+  return { ...plan, [d.ch]: [...(plan[d.ch] || []).filter(c => c.from !== from), { from, amount }].sort((a, b) => (a.from < b.from ? -1 : 1)) };
+}
+export function removePlanChange(plan, key, from) {
+  const d = PLAN_KEYS[key];
+  return { ...plan, [d.ch]: (plan[d.ch] || []).filter(c => c.from !== from) };
+}
+/** 原本的計畫＝拿掉所有修改 */
+export const originalPlan = plan => ({ ...plan, ...Object.fromEntries(Object.values(PLAN_KEYS).map(d => [d.ch, []])) });
+/** 改計畫最早只能從下一期開始，已結算的月份不能改 */
+export const firstEditableMonth = state => nextDue(state).slice(0, 7);
+/** 跟原計畫比：到 d 那天，應該要有的錢差多少（正＝現在的計畫多存） */
+export function planCompare(state, d) {
+  const now = targetCash(state, d), orig = targetCash({ ...state, plan: originalPlan(state.plan) }, d);
+  return { date: d, now, orig, diff: now - orig };
+}
+
 /** 事件已付金額：唯一來源是結算紀錄裡 kind='event' 的流量 */
 export const eventPaid = (state, ev, upTo = '9999-12-31') =>
   sum(state.snapshots.filter(s => s.date <= upTo), s => sum((s.flows || []).filter(f => f.eventId === ev.id), f => f.amount));
@@ -68,24 +97,53 @@ export function calcPeriod(state, prev, snap) {
   const income = actSalary + actSide + actBonus + oneOff;
   const E = prev.cash + income - loanPay + nonLiving - snap.cash;
   const n = items.filter(i => i.type === 'living').length;
+  // 找不到來源的錢：併入下期後仍對不起來時記這個，該期生活費無法判斷
+  const unknown = sum(flows.filter(f => f.kind === 'unknownIn'), f => f.amount);
   return {
-    from: prev.date, to: snap.date, periods: n, budget, E, loanPay,
-    planSalary, actSalary, planSide, actSide, actBonus, oneOff, nonLiving,
+    from: prev.date, to: snap.date, startCash: prev.cash, periods: n, budget, E, loanPay,
+    planSalary, actSalary, planSide, actSide, actBonus, oneOff, nonLiving, unknown,
     salaryDiff: actSalary - planSalary, sideDiff: actSide - planSide, livingDiff: budget - E,
     flows,
   };
+}
+
+const MERGE_KEYS = ['periods', 'budget', 'E', 'loanPay', 'planSalary', 'actSalary', 'planSide', 'actSide', 'actBonus', 'oneOff', 'nonLiving', 'salaryDiff', 'sideDiff', 'livingDiff', 'unknown'];
+/** 兩個相連結算期合成一期（生活費可加總：E₁＋E₂＝起點現金＋收入−支出−終點現金）。 */
+export function mergePeriods(a, b) {
+  const m = { ...b, from: a.from, startCash: a.startCash, flows: [...a.flows, ...b.flows], merged: (a.merged || 1) + 1 };
+  for (const k of MERGE_KEYS) m[k] = a[k] + b[k];
+  return m;
+}
+
+/**
+ * 各結算期。結算標了 carry（卡費晚扣、想不起來）時，該期生活費不判斷，與下一期合併計算。
+ * 最後一筆若是 carry，回傳的最後一期會帶 carry:true（還在等下一期）。
+ */
+export function settledPeriods(state, snaps = state.snapshots) {
+  const out = [];
+  let acc = null;
+  for (let i = 1; i < snaps.length; i++) {
+    let p = calcPeriod(state, snaps[i - 1], snaps[i]);
+    if (acc) p = mergePeriods(acc, p);
+    if (snaps[i].carry) { acc = p; continue; }
+    acc = null; out.push(p);
+  }
+  if (acc) out.push({ ...acc, carry: true });
+  return out;
 }
 
 /** 截至最新結算的累積進度與原因拆解（相對目前計畫）。 */
 export function progress(state, upTo) {
   const snaps = state.snapshots.filter(s => s.date <= (upTo || '9999-12-31'));
   const last = snaps[snaps.length - 1];
-  const r = { salary: 0, side: 0, living: 0, oneOff: 0, bonusDiff: 0, bonusPending: 0, eventAmount: 0, eventTiming: 0, transfer: 0, periods: [] };
-  for (let i = 1; i < snaps.length; i++) {
-    const p = calcPeriod(state, snaps[i - 1], snaps[i]);
+  const r = { salary: 0, side: 0, living: 0, carry: 0, unknown: 0, oneOff: 0, bonusDiff: 0, bonusPending: 0, eventAmount: 0, eventTiming: 0, transfer: 0, periods: [] };
+  for (const p of settledPeriods(state, snaps)) {
     r.periods.push(p);
-    r.salary += p.salaryDiff; r.side += p.sideDiff; r.living += p.livingDiff; r.oneOff += p.oneOff;
-    r.transfer += sum(p.flows.filter(f => !['income', 'event'].includes(f.kind)), f => f.amount);
+    r.salary += p.salaryDiff; r.side += p.sideDiff; r.oneOff += p.oneOff;
+    if (p.carry) r.carry += p.livingDiff;
+    else if (p.unknown) r.unknown += p.livingDiff + p.unknown; // 生活費無法判斷，不算少花
+    else r.living += p.livingDiff;
+    r.transfer += sum(p.flows.filter(f => !['income', 'event', 'unknownIn'].includes(f.kind)), f => f.amount);
   }
   for (const b of bonusStatus(state, last.date)) {
     if (b.received === null) r.bonusPending -= b.plan; else r.bonusDiff += b.received - b.plan;
@@ -98,8 +156,8 @@ export function progress(state, upTo) {
     else r.eventTiming += paid;
   }
   // 狀態用：排除時間差與資產轉換
-  r.status = r.salary + r.side + r.bonusDiff + r.living + r.oneOff + r.eventAmount;
-  r.total = r.status + r.bonusPending + r.eventTiming + r.transfer;
+  r.status = r.salary + r.side + r.bonusDiff + r.living + r.unknown + r.oneOff + r.eventAmount;
+  r.total = r.status + r.bonusPending + r.eventTiming + r.transfer + r.carry;
   r.vsOriginal = r.total + (state.snapshots[0].cash - state.original.planCashAtStart);
   r.last = last;
   return r;
@@ -134,7 +192,7 @@ export function targetCash(state, d) {
   return t;
 }
 
-const FLOW_LABEL = { income: '一次性收入', gift: '家人資助', stockSell: '賣股入帳', loanIn: '借款入帳', stockBuy: '買股', prepay: '提前還款', otherOut: '其他支出', otherIn: '其他入帳' };
+const FLOW_LABEL = { income: '一次性收入', gift: '家人資助', stockSell: '賣股入帳', loanIn: '借款入帳', stockBuy: '買股', prepay: '提前還款', otherOut: '其他支出', otherIn: '其他入帳', unknownIn: '找不到來源的錢' };
 
 /** 首頁用：本期目標 vs 實際、差在哪裡、下一期目標 */
 export function standing(state) {
@@ -142,10 +200,12 @@ export function standing(state) {
   const target = targetCash(state, d), diff = last.cash - target;
   const r = progress(state), parts = [];
   const add = (label, v) => { if (Math.round(v)) parts.push([label, v]); };
-  add('薪資', r.salary); add('兼職', r.side); add('生活費（少花為正）', r.living);
+  add('薪資', r.salary); add('兼職', r.side); add('生活費', r.living);
+  add('併入下期的生活費（還沒判斷）', r.carry);
+  add('找不到來源的錢（該期生活費無法判斷）', r.unknown);
   for (const b of bonusStatus(state, d)) add(`${b.year}年終${b.received === null ? '（尚未入帳）' : ''}`, (b.received ?? 0) - b.plan);
   const byKind = {};
-  for (const p of r.periods) for (const f of p.flows) if (f.kind !== 'event') byKind[f.kind] = (byKind[f.kind] || 0) + f.amount;
+  for (const p of r.periods) for (const f of p.flows) if (f.kind !== 'event' && f.kind !== 'unknownIn') byKind[f.kind] = (byKind[f.kind] || 0) + f.amount;
   for (const [k, v] of Object.entries(byKind)) add(FLOW_LABEL[k] || k, v);
   for (const ev of state.events) {
     if (ev.status === 'cancelled') continue;
@@ -157,6 +217,23 @@ export function standing(state) {
     .map(ev => ({ name: ev.name, amount: eventRemaining(state, ev), dateTo: ev.dateTo }));
   return { date: d, actual: last.cash, target, diff, parts, nextDate, nextTarget: targetCash(state, nextDate), pending,
     vsOriginal: diff + (state.snapshots[0].cash - state.original.planCashAtStart) };
+}
+
+/**
+ * 首頁一句話用：燈號、差額、下次結算、下個月生活費上限、下一筆大筆款項。
+ * 燈號：差額在容許內或超前＝good；落後但不到一個月生活費＝warn；
+ * 落後超過一個月生活費，或下一筆款項付完會低於備用金＝bad。
+ */
+export function homeSummary(state, today) {
+  const last = state.snapshots[state.snapshots.length - 1];
+  const t = standing(state), tol = state.settings.tolerance;
+  const nextDate = nextDue(state);
+  const nextBudget = -sum(regularItems(state.plan, last.date, nextDate).filter(i => i.type === 'living'), i => i.amount);
+  const ev = nextEvent(state), o = ev ? eventOutlook(state, ev) : null;
+  const level = t.diff < -nextBudget || o?.gap > 0 ? 'bad' : t.diff < -tol ? 'warn' : 'good';
+  const daysLeft = Math.round((Date.parse(nextDate) - Date.parse(today)) / 864e5);
+  return { level, diff: t.diff, even: Math.abs(t.diff) <= tol, started: state.snapshots.length > 1,
+    nextDate, daysLeft, nextBudget, event: ev ? { ev, remaining: -eventRemaining(state, ev), ...o } : null };
 }
 
 export const nextEvent = state => state.events.filter(isOpen).sort((a, b) => (a.dateFrom < b.dateFrom ? -1 : 1))[0] || null;

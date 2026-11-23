@@ -16,7 +16,8 @@
 | 檔案 | 內容 |
 |---|---|
 | `js/engine.js` | 計畫展開 `regularItems`、單期 `calcPeriod`、累積 `progress`、預測 `forecast`/`eventOutlook`、提問 `questions`/`needsIncomeCheck`、`initFromSetup`、`migrate`、`validateState`、`makeIcs` |
-| `js/app.js` | hash 路由（home/settle/history/events/settings）、結算草稿 `D`、`data-act` 事件委派、`data-k` 表單綁定、備份匯入、SW 更新提示 |
+| `js/app.js` | hash 路由（home/plan/history/settings 四個分頁；settle 是全螢幕流程）、結算草稿 `D`、`data-act` 事件委派、`data-k` 表單綁定、測試模式、備份匯入、SW 更新提示 |
+| `css/theme.css` | 配色：無彩色底（淺灰／深灰）共用，每組只定 4 個醒目色；換色只改這裡；新增一組要在 `app.js` 的 `PALETTES` 加名稱 |
 | `js/db.js` | IndexedDB，整份 state 存一個 key |
 | `sw.js` | cache-first；新版等待使用者點「更新」才 `skipWaiting` |
 

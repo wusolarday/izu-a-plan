@@ -143,3 +143,72 @@ test('standing：實際−目標，差在哪裡加總等於差額', () => {
   assert.ok(t.parts.some(([l]) => l.includes('尚未付清')));
   assert.equal(t.nextDate, '2027-02-21');
 });
+
+test('併入下期：卡費晚扣，兩期合計生活費正確，差在哪裡加總等於差額', () => {
+  // 每期計畫：應有 = 上次＋50,000＋3,000－6,000。第一期卡費 38,000 晚扣 → 只少了 0，現金比應有多 3,000
+  const s = settle(base(), { date: '2026-12-21', cash: 850000, side: [{ amount: 3000 }], carry: true });
+  let r = E.progress(s);
+  assert.equal(r.periods.length, 1); assert.equal(r.periods[0].carry, true);
+  assert.equal(r.periods[0].E, -3000); assert.equal(r.living, 0);
+  let t = E.standing(s);
+  assert.equal(t.parts.reduce((a, x) => a + x[1], 0), t.diff);
+  assert.deepEqual(t.parts, [['併入下期的生活費（還沒判斷）', 38000]]);
+  // 第二期卡費扣了：這期現金流出 73,000（35,000＋晚扣的 38,000）
+  settle(s, { date: '2027-01-21', cash: 850000 + 47000 - 73000, side: [{ amount: 3000 }] });
+  r = E.progress(s);
+  assert.equal(r.periods.length, 1);
+  const p = r.periods[0];
+  assert.equal(p.merged, 2); assert.equal(p.periods, 2);
+  assert.equal(p.from, '2026-11-20'); assert.equal(p.startCash, 800000);
+  assert.equal(p.E, 70000); assert.equal(p.budget, 70000); assert.equal(r.living, 0); assert.equal(r.carry, 0);
+  t = E.standing(s);
+  assert.equal(t.parts.reduce((a, x) => a + x[1], 0), t.diff);
+  assert.ok(!t.parts.some(([l]) => l.startsWith('生活費') || l.startsWith('併入')));
+});
+
+test('併入下期後仍對不起來 → 記為找不到來源的錢，生活費不算少花', () => {
+  const s = settle(base(), { date: '2026-12-21', cash: 850000, side: [{ amount: 3000 }], carry: true });
+  settle(s, { date: '2027-01-21', cash: 900000, side: [{ amount: 3000 }] });
+  let p = E.progress(s).periods[0];
+  assert.equal(p.merged, 2); assert.equal(p.E, -6000); // 兩期合併還是像一毛都沒花
+  s.snapshots[2].flows = [{ kind: 'unknownIn', amount: 6000, note: '' }];
+  const r = E.progress(s);
+  p = r.periods[0];
+  assert.equal(p.E, 0); assert.equal(p.unknown, 6000);
+  assert.equal(r.living, 0); assert.equal(r.unknown, 76000);
+  const t = E.standing(s);
+  assert.equal(t.parts.reduce((a, x) => a + x[1], 0), t.diff);
+  assert.ok(t.parts.some(([l, v]) => l.startsWith('找不到來源的錢') && v === 76000));
+  assert.ok(!t.parts.some(([l]) => l.startsWith('生活費')));
+});
+
+test('首頁燈號：照計畫綠、小落後黃、落後超過一個月生活費紅', () => {
+  const at = cash => E.homeSummary(settle(base(), { date: '2026-12-21', cash, side: [{ amount: 3000 }] }), '2026-12-22');
+  let h = at(812000);
+  assert.equal(h.level, 'good'); assert.equal(h.even, true); assert.equal(h.started, true);
+  assert.equal(h.nextDate, '2027-01-21'); assert.equal(h.daysLeft, 30); assert.equal(h.nextBudget, 35000);
+  assert.equal(h.event.ev.id, 'e1'); assert.equal(h.event.remaining, 50000);
+  h = at(802000); assert.equal(h.level, 'warn'); assert.equal(h.diff, -10000);
+  h = at(760000); assert.equal(h.level, 'bad'); assert.equal(h.diff, -52000);
+  assert.equal(E.homeSummary(base(), '2026-11-21').started, false);
+});
+
+test('計畫頁直接改：從下一期起生效，可撤回，可跟原計畫比', () => {
+  const s = settle(base(), { date: '2026-12-21', cash: 812000, side: [{ amount: 3000 }] });
+  assert.equal(E.firstEditableMonth(s), '2027-01');
+  const before = E.calcPeriod(s, s.snapshots[0], s.snapshots[1]).budget;
+  s.plan = E.setPlanValue(s.plan, 'living', '2027-01', 33000);
+  // 已結算的期不受影響
+  assert.equal(E.calcPeriod(s, s.snapshots[0], s.snapshots[1]).budget, before);
+  assert.equal(E.planValues(s.plan, '2026-12').living, 35000);
+  assert.equal(E.planValues(s.plan, '2027-01').living, 33000);
+  // 同月份再改一次是取代，不是疊加
+  s.plan = E.setPlanValue(s.plan, 'living', '2027-01', 32000);
+  assert.equal(s.plan.livingChanges.length, 1);
+  // 1～6 月每月少花 3,000 → 到 6/30 應該多存 18,000
+  const c = E.planCompare(s, '2027-06-30');
+  assert.equal(c.diff, 18000);
+  assert.equal(E.originalPlan(s.plan).livingChanges.length, 0);
+  s.plan = E.removePlanChange(s.plan, 'living', '2027-01');
+  assert.equal(E.planCompare(s, '2027-06-30').diff, 0);
+});

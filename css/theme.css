@@ -1,0 +1,13 @@
+/*
+ * 配色：大部分無彩色（灰底、白卡、近黑字），只有按鈕、連結、狀態用顏色。
+ * 每組一行 4 個色：pri 按鈕與連結｜good 好｜warn 注意｜bad 不好
+ * 新增一組：複製一行、改名字與色碼，再到 js/app.js 的 PALETTES 加一個名稱。
+ */
+[data-palette=choco]{--pri:#6b3f26;--good:#4b7a3c;--warn:#b0711c;--bad:#a8362f}
+[data-palette=indigo]{--pri:#4b3cc4;--good:#2f7d57;--warn:#b26a12;--bad:#b8344d}
+[data-palette=pine]{--pri:#2d5d4f;--good:#2b7a4b;--warn:#9a6212;--bad:#b0413e}
+
+/* 無彩色底：bg 底色｜surface 卡片｜ink 文字（所有配色共用） */
+:root{--bg:#f2f2f7;--surface:#ffffff;--ink:#1c1c1e}
+@media (prefers-color-scheme:dark){html:not([data-mode=light]){--bg:#1c1c1e;--surface:#2c2c2e;--ink:#f2f2f7}}
+html[data-mode=dark]{--bg:#1c1c1e;--surface:#2c2c2e;--ink:#f2f2f7}
