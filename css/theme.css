@@ -1,14 +1,14 @@
 /*
  * 配色：大部分無彩色（灰底、白卡、近黑字），只有按鈕、連結、狀態用顏色。
  * 每組一行 4 個色：pri 主色（按鈕、連結）｜good 好｜warn 注意｜bad 不好
- * good／warn／bad 仍然是綠、黃、紅的意思，但色相與飽和度往主色靠，看起來是同一家族。
+ * good 可以往主色靠；warn（琥珀黃、較亮）與 bad（深紅、較飽和）要拉開，色相至少差 40°，不然「注意」跟「刪除／落後」會分不出來。
  * 新增一組：複製一行、改名字與色碼，再到 js/app.js 的 PALETTES 加一個名稱。
  */
-:root,[data-palette=ocean]{--pri:#2f6db0;--good:#2a8f86;--warn:#c3892e;--bad:#cc5a57}
-[data-palette=lavender]{--pri:#7a63d6;--good:#4a9a8c;--warn:#c98c45;--bad:#cf5a83}
-[data-palette=sage]{--pri:#5b7a65;--good:#6b8f4f;--warn:#b98a3e;--bad:#b45c4c}
-[data-palette=coral]{--pri:#d4573e;--good:#5c9469;--warn:#d0952e;--bad:#a83a5c}
-[data-palette=graphite]{--pri:#2c2c2e;--good:#4f9468;--warn:#bd8a3c;--bad:#c25a50}
+:root,[data-palette=ocean]{--pri:#2f6db0;--good:#2a8f86;--warn:#d39a1f;--bad:#d1334a}
+[data-palette=lavender]{--pri:#7a63d6;--good:#4a9a8c;--warn:#d6a023;--bad:#cf2f5c}
+[data-palette=sage]{--pri:#5b7a65;--good:#6b8f4f;--warn:#cf9c22;--bad:#c4363a}
+[data-palette=coral]{--pri:#d4573e;--good:#5c9469;--warn:#d9a51e;--bad:#a8203f}
+[data-palette=graphite]{--pri:#2c2c2e;--good:#3f9a62;--warn:#d49b1c;--bad:#d1343a}
 
 /* 無彩色底：bg 底色｜surface 卡片｜ink 文字（所有配色共用） */
 :root{--bg:#f2f2f7;--surface:#ffffff;--ink:#1c1c1e}

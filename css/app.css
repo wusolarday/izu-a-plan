@@ -10,7 +10,7 @@
   --info-bg:var(--sunk); /* 一般提示用灰色，顏色只留給狀態 */
   --on-pri:#fff;
   /* 文字、外框用的顏色：淺色＝標準色；深色時稍微調亮，深灰底上才看得清楚（按鈕底色、進度條仍用標準色） */
-  --pri-t:var(--pri);--good-t:var(--good);--warn-t:var(--warn);--bad-t:var(--bad);
+  --pri-t:var(--pri);--good-t:var(--good);--warn-t:color-mix(in srgb,var(--warn) 70%,#000);--bad-t:var(--bad);
   --r:14px;--tab:64px;
   /* 材質：淡陰影讓卡片浮起來；毛玻璃給浮在內容上的東西（分頁列、面板、提示） */
   --shadow:0 1px 2px rgba(0,0,0,.04),0 6px 20px rgba(0,0,0,.05);
