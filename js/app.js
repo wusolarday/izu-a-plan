@@ -45,7 +45,7 @@ const iconBtn = (name, label, attrs) => `<button class="icon-btn" aria-label="${
 const rows = list => `<table class="rows">${list.filter(Boolean).map(([a, b, cls]) => `<tr class="${cls || ''}"><td>${a}</td><td class="num">${b}</td></tr>`).join('')}</table>`;
 
 // 配色：色碼在 css/theme.css，這裡只列名稱。存在這台裝置（不進備份）
-const PALETTES = { ocean: '霧藍', lavender: '薰衣草', sage: '鼠尾草', coral: '珊瑚', wood: '胡桃木', graphite: '石墨' };
+const PALETTES = { ocean: '霧藍', lavender: '薰衣草', sage: '鼠尾草', coral: '珊瑚', wood: '胡桃木', olive: '橄欖木', graphite: '石墨' };
 const MODES = { auto: '跟著手機', light: '淺色', dark: '深色' };
 function setMode(m) {
   if (m === 'auto') delete document.documentElement.dataset.mode; else document.documentElement.dataset.mode = m;

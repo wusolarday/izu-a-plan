@@ -8,9 +8,10 @@
 [data-palette=lavender]{--pri:#7a63d6;--good:#4a9a8c;--warn:#d6a023;--bad:#cf2f5c}
 [data-palette=sage]{--pri:#5b7a65;--good:#6b8f4f;--warn:#cf9c22;--bad:#c4363a}
 [data-palette=coral]{--pri:#d4573e;--good:#5c9469;--warn:#d9a51e;--bad:#a8203f}
-[data-palette=wood]{--pri:#7a5232;--good:#5e8a4a;--warn:#d6a127;--bad:#b42a3c;
-  /* 木頭：主色卡加上很淡的木紋（只有這組有，其他配色 --texture 為 none） */
-  --texture:repeating-linear-gradient(97deg,rgba(255,255,255,.05) 0 1px,transparent 1px 7px),repeating-linear-gradient(91deg,rgba(0,0,0,.07) 0 2px,transparent 2px 15px),repeating-linear-gradient(103deg,rgba(255,255,255,.035) 0 3px,transparent 3px 23px)}
+[data-palette=wood]{--pri:#7a5232;--good:#5e8a4a;--warn:#d6a127;--bad:#b42a3c}
+[data-palette=olive]{--pri:#6a6340;--good:#4f8a55;--warn:#d4a126;--bad:#b3303b}
+/* 木頭系：主色卡加上很淡的木紋（其他配色 --texture 為 none） */
+[data-palette=wood],[data-palette=olive]{--texture:repeating-linear-gradient(97deg,rgba(255,255,255,.05) 0 1px,transparent 1px 7px),repeating-linear-gradient(91deg,rgba(0,0,0,.07) 0 2px,transparent 2px 15px),repeating-linear-gradient(103deg,rgba(255,255,255,.035) 0 3px,transparent 3px 23px)}
 [data-palette=graphite]{--pri:#2c2c2e;--good:#3f9a62;--warn:#d49b1c;--bad:#d1343a}
 
 /* 無彩色底：bg 底色｜surface 卡片｜ink 文字（所有配色共用） */
