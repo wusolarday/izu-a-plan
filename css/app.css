@@ -181,6 +181,9 @@ button .ic,.btn .ic{margin:0 2px}
 /* ---- 表單 ---- */
 label{display:block;margin:12px 0 4px;font-size:15px;color:var(--muted)}
 input,select{width:100%;font:inherit;font-size:18px;padding:12px;border:1px solid var(--line);border-radius:12px;background:var(--surface);color:var(--ink)}
+.wan-in{position:relative}
+.wan-in input{padding-right:44px}
+.wan-in span{position:absolute;right:14px;top:50%;transform:translateY(-50%);color:var(--muted);font-size:16px;pointer-events:none}
 input[type=radio],input[type=checkbox]{width:auto;accent-color:var(--pri)}
 .inline{display:flex;gap:8px;align-items:center}
 .inline>*{flex:1;min-width:0}

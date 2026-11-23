@@ -356,13 +356,12 @@ const setPath = (o, path, v) => { const k = path.split('.'); const last = k.pop(
 const getPath = (o, path) => path.split('.').reduce((a, x) => a?.[x], o);
 const field = (k, attrs = '') => `data-k="${k}" value="${esc(getPath(D, k) ?? '')}" ${attrs}`;
 // 金額欄：下方即時顯示千分位與「約幾萬」，現金總額另外跟上次比
-const wan = v => Math.abs(v) >= 1e4 ? `（約 ${(v / 1e4).toLocaleString('zh-TW', { maximumFractionDigits: 1 })} 萬）` : '';
 function echo(k) {
   const raw = getPath(D, k);
   if (raw === '' || raw == null) return '';
   const v = num(raw);
   if (!Number.isFinite(v)) return '<span class="bad">請只填數字</span>';
-  let s = `${fmt(v)} 元${wan(v)}`;
+  let s = `＝ ${fmt(v)} 元`;
   if (k === 'cash') {
     const prev = lastSnap().cash, r = prev ? v / prev : 1;
     s += `・比上次 ${sgn(v - prev)}`;
@@ -370,7 +369,11 @@ function echo(k) {
   }
   return s;
 }
-const money = (k, attrs = '') => `<input inputmode="numeric" ${field(k, attrs)}><div class="echo" data-echo="${k}">${echo(k)}</div>`;
+// 金額輸入一律用「萬」：畫面上打 82.35，內部存 823500（元）。計算仍是精確到元
+const toWan = y => { if (y === '' || y == null) return ''; const n = Number(String(y).replace(/,/g, '')); return Number.isFinite(n) ? String(+(n / 1e4).toFixed(4)) : String(y); };
+const fromWan = t => { const x = String(t ?? '').trim().replace(/[,，萬\s]/g, ''); if (x === '') return ''; const n = Number(x); return Number.isFinite(n) ? String(Math.round(n * 1e4)) : x; }; // 打錯字就保留原字，讓提示顯示「請只填數字」
+const wanBox = (attrs, value = '', ph = '') => `<div class="wan-in"><input inputmode="decimal" data-wan ${attrs} value="${esc(value)}"${ph ? ` placeholder="${ph}"` : ''}><span aria-hidden="true">萬</span></div>`;
+const money = (k, ph = '') => wanBox(`data-k="${k}"`, toWan(getPath(D, k)), ph) + `<div class="echo" data-echo="${k}">${echo(k)}</div>`;
 const radio = (k, v, label) => `<label><input type="radio" name="${k}" data-k="${k}" value="${v}" ${getPath(D, k) === v ? 'checked' : ''}> ${label}</label>`;
 const FLOW = { income: ['一次性收入（中獎、獎金等）', 1], gift: ['家人資助', 1], stockSell: ['賣股入帳', 1], loanIn: ['借款入帳', 1], stockBuy: ['買股', -1], prepay: ['提前還款', -1], otherOut: ['其他非生活支出（押金等）', -1], otherIn: ['其他入帳（退款、押金返還等）', 1], unknownIn: ['找不到來源的錢', 1] };
 const livingText = p => p.carry ? '併入下期' : p.unknown ? '無法判斷' : fmt(p.E);
@@ -390,7 +393,7 @@ function settleSteps() {
   const q = E.questions(S, D.date), last = lastSnap(), accNames = S.accounts || [], steps = [];
   const ask = (title, help) => `<h2 class="q">${title}</h2>${help ? `<p class="q-help">${help}</p>` : ''}`;
   steps.push({ ids: ['c-cash', 'c-date'], html: `${ask('現在所有帳戶加起來，有多少錢？', '打開網銀，看所有帳戶、現金、定存的總額。這個月的薪水和兼職已經在裡面了，不用另外加。')}
-    <div class="card" id="c-cash">${money('cash', 'placeholder="例如 820000" autofocus')}
+    <div class="card" id="c-cash">${money('cash', '例如 82')}
     <details><summary>錢分在好幾個帳戶？分開填，幫你加總</summary>${accNames.length ? accNames.map((n, i) => `<label>${esc(n)}</label>${money('acc.' + i)}`).join('') + '<div class="actions"><button class="small" data-act="accsum">加總填入</button></div>' : '<p class="muted" style="margin:8px 0 0">先寫下你有哪些帳戶，之後每個月就會一格一格列出來讓你填。</p>'}
       ${accNames.length ? '<details><summary>改帳戶清單</summary>' : ''}<label>你有哪些帳戶</label><input id="accnames" placeholder="例如：玉山，郵局，現金" value="${esc(accNames.join('，'))}"><div class="actions"><button class="small" data-act="accsave">儲存</button></div><p class="muted">寫你自己認得的名字就好，不用帳號。用逗號分開。</p>${accNames.length ? '</details>' : ''}</details></div>
     <details class="more" id="c-date"><summary>結算日 ${ymd(D.date)}、股票（選填）</summary><div class="card">
@@ -422,7 +425,7 @@ function settleSteps() {
       <div class="opts">${radio('salaryScope', 'once', '只有這次（請假等）')}${radio('salaryScope', 'after', '以後都是（調薪等）')}</div></details>
     <details ${D.flows.length ? 'open' : ''} id="d-flows"><summary>有大筆的錢進來或出去</summary><p class="muted" style="margin:0">例如家人給的錢、退款、買股票、押金。平常的生活花費不用寫。</p>${D.flows.map((f, i) => `<div class="flowrow"><div class="flowhead"><b>第 ${i + 1} 筆</b>${iconBtn('trash', '刪除這一筆', `data-act="flowdel" data-i="${i}"`)}</div>
       <label>是什麼錢</label><select data-k="flows.${i}.kind">${Object.entries(FLOW).filter(([v]) => v !== 'unknownIn' || f.kind === v).map(([v, [l]]) => `<option value="${v}" ${f.kind === v ? 'selected' : ''}>${l}</option>`).join('')}</select>
-      <label>金額</label><input inputmode="numeric" ${field(`flows.${i}.amount`)}><div class="echo" data-echo="flows.${i}.amount">${echo(`flows.${i}.amount`)}</div>
+      <label>金額</label>${money(`flows.${i}.amount`)}
       <label>備註（選填）</label><input ${field(`flows.${i}.note`)}></div>`).join('')}
       <div class="actions"><button class="small" data-act="addflow">${ic('plus')}新增一筆</button></div></details></div>` });
   steps.push({ ids: ['result'], html: `${ask('這個月的結果')}<div id="preview"></div><div class="hint" id="cf-hint"></div>` });
@@ -541,7 +544,7 @@ function showPreview() {
       <details><summary>為什麼會這樣算</summary><div class="muted">完全沒花錢的話應有 ${fmt(snap.cash - gap)}，實際卻有 ${fmt(snap.cash)}，多了 ${fmt(gap)}。你這期真的花掉的錢，也是靠這筆沒記到的錢補上的，所以沒記到的錢 ≈ 多出來的 ${fmt(gap)} ＋ 這期花掉的錢。</div></details>
       <div class="actions">${again ? '' : '<button class="small pri" data-act="fixcarry">卡費還沒扣／想不起來：併入下期</button>'}<button class="small" data-act="fixknown">我知道是哪筆錢</button><button class="small" data-act="fixcash">總額打錯了</button>${again ? '<button class="small" data-act="fixgiveup">放棄追查</button>' : ''}</div>
       ${D.fix ? `<div class="fixbox"><label>是什麼錢</label><select data-k="fix.kind">${FIX_KINDS.map(v => `<option value="${v}" ${D.fix.kind === v ? 'selected' : ''}>${FLOW[v][0]}</option>`).join('')}</select>
-        <label>實際入帳金額</label><input inputmode="numeric" data-k="fix.amount" value="${esc(D.fix.amount)}" placeholder="例如 ${fmt(gap + p.budget)}">
+        <label>實際入帳金額</label>${wanBox('data-k="fix.amount"', toWan(D.fix.amount), `例如 ${toWan(gap + p.budget)}`)}
         <div class="echo" id="fix-echo">${fixEcho()}</div>
         <div class="actions full"><button class="pri" data-act="fixadd">加入並重新試算</button></div></div>` : ''}</div>`);
   } else {
@@ -631,7 +634,7 @@ function evCard(ev) {
     ${bar}
     <form data-ev="${ev.id}"><label>名稱</label><input name="name" value="${esc(ev.name)}">
     <label>金額</label><div class="seg" style="margin-bottom:8px">${[['out', '要付出去'], ['in', '會收到']].map(([v, l]) => `<label class="segopt"><input type="radio" name="dir" value="${v}" ${(v === 'in') === st.income ? 'checked' : ''}>${l}</label>`).join('')}</div>
-    <input name="amount" inputmode="numeric" value="${st.total || ''}" placeholder="例如 50000">
+    ${wanBox('name="amount"', st.total ? toWan(st.total) : '', '例如 5')}
     <div class="inline"><div><label>最早</label><input type="date" name="dateFrom" value="${ev.dateFrom}"></div><div><label>最晚</label><input type="date" name="dateTo" value="${ev.dateTo}"></div></div>
     <label class="opts"><input type="checkbox" name="estimate" ${ev.estimate ? 'checked' : ''}> 金額還是暫估的</label>
     <div class="actions"><button class="pri" data-act="evsave">儲存</button>${action}</div></form></details></div>`;
@@ -646,7 +649,7 @@ function plan() {
     const head = `<div class="prow"><div class="pl"><b>${d.label}</b><span>${when[k]}</span></div><div class="pv"><b class="num">${fmt(cur[k])}</b>${changed ? `<span>原本 ${fmt(orig[k])}</span>` : ''}</div>
       ${planEdit === k ? '' : iconBtn('pencil', '改' + d.label, `data-act="pedit" data-key="${k}"`)}</div>`;
     if (planEdit !== k) return head;
-    return head + `<div class="pedit"><label>改成多少</label><input id="pe-amt" inputmode="numeric" value="${cur[k]}">
+    return head + `<div class="pedit"><label>改成多少</label>${wanBox('id="pe-amt"', toWan(cur[k]))}
       <label>從哪個月開始</label><input id="pe-from" type="month" min="${fm}" value="${fm}">
       <p class="muted" style="margin:6px 0 0">已經結算過的月份不會被改到。</p>
       <div class="actions"><button class="pri" data-act="pesave">儲存</button><button data-act="pecancel">取消</button></div></div>`;
@@ -663,12 +666,12 @@ function plan() {
     <details><summary>改過哪些地方</summary><ul class="plain-list">${hist.map(({ k, d, c }) => `<li><span>${ym(c.from)} 起，${d.label}改成 <b class="num">${fmt(c.amount)}</b></span>${c.from >= fm ? iconBtn('undo', '撤回這個修改', `data-act="pundo" data-key="${k}" data-from="${c.from}"`) : '<span class="muted">已生效</span>'}</li>`).join('')}</ul></details></div></section>` : ''}
   <div class="card"><h3>兼職項目</h3><div class="list">${S.sideItems.map(i => `<div class="item"><span>${esc(i.name)}<span class="muted">　${i.kind === 'monthly' ? `每月 ${fmt(i.amount)}` : '單次'}${i.active ? '' : '，已停用'}</span></span>
       <button class="switch ${i.active ? 'on' : ''}" role="switch" aria-checked="${i.active}" aria-label="${esc(i.name)}" data-act="sidetoggle" data-id="${i.id}"><i></i></button></div>`).join('')}</div>
-    <details><summary>新增每月兼職</summary><div class="inline"><input id="sn" placeholder="名稱"><input id="sa" inputmode="numeric" placeholder="每月金額"></div>
+    <details><summary>新增每月兼職</summary><div class="inline"><input id="sn" placeholder="名稱">${wanBox('id="sa"', '', '每月金額')}</div>
     <div class="actions"><button class="small" data-act="sideadd">新增</button></div><p class="muted">單次收入在結算時新增就好。</p></details></div>
   <h2>大筆款項</h2><p class="muted" style="margin:-6px 0 4px">付了沒，每個月結算時回答就好，這裡會自動更新。</p>${list.map(evCard).join('')}
     <div class="actions"><button data-act="evadd">${ic('plus')}新增款項</button></div>
   <h2>至少要留的錢</h2><form class="card" id="resf"><p class="muted" style="margin:0">付完大筆款項後，帳戶裡至少要剩多少才安心（備用金）。</p>
-    <input name="reserve" inputmode="numeric" value="${S.settings.reserve}"><div class="actions"><button class="pri" data-act="ressave">儲存</button></div></form>`;
+    ${wanBox('name="reserve"', toWan(S.settings.reserve))}<div class="actions"><button class="pri" data-act="ressave">儲存</button></div></form>`;
   // 上一次結算付清的款項：狀態圖示跳一下（每筆只一次）
   for (const f of (lastSnap().flows || []).filter(f => f.kind === 'event')) {
     const ev = S.events.find(e => e.id === f.eventId);
@@ -693,8 +696,8 @@ function settings() {
       ? '<p style="margin:0">現在<b>正在測試</b>。整個 App 都有斜紋外框時，就是在測試。</p><div class="actions"><button class="pri" data-act="sbAsk">結束測試</button></div>'
       : '<p style="margin:0">想試試看結算或改計畫，又不想弄亂資料時用。開始後整個 App 都會進入測試，結束時可以全部丟掉。</p><div class="actions"><button data-act="sbStart">開始測試模式</button></div>'}</div>
     <details class="more"><summary>進階規則</summary><form class="card" id="rulef">
-      <label>差多少以內，算「照著計畫走」（元）</label><input name="tolerance" inputmode="numeric" value="${st.tolerance}">
-      <label>生活費跟預算差多少，結算時要問我（元）</label><input name="askThreshold" inputmode="numeric" value="${st.askThreshold}">
+      <label>差多少以內，算「照著計畫走」</label>${wanBox('name="tolerance"', toWan(st.tolerance))}
+      <label>生活費跟預算差多少，結算時要問我</label>${wanBox('name="askThreshold"', toWan(st.askThreshold))}
       <label>股票賣掉，大概能拿回幾成（0～1，例如 0.8＝八成）</label><input name="stockHaircut" inputmode="decimal" value="${st.stockHaircut}">
       <div class="actions"><button class="pri" data-act="rulesave">儲存</button></div></form></details>
     <div class="card danger-zone"><h3>清除資料</h3><p class="muted" style="margin:0">刪掉這台手機上的全部 A計畫 資料。建議先備份。</p><div class="actions"><button class="danger" data-act="reset">${ic('trash')}清除全部資料</button></div></div>
@@ -793,22 +796,23 @@ const acts = {
   },
   rulesave: async () => {
     const f = new FormData($('#rulef')), n = k => Number(f.get(k));
-    Object.assign(S.settings, { tolerance: n('tolerance'), askThreshold: n('askThreshold'), stockHaircut: Math.min(1, Math.max(0, n('stockHaircut'))) });
+    const w = k => num(fromWan(f.get(k))) || 0;
+    Object.assign(S.settings, { tolerance: w('tolerance'), askThreshold: w('askThreshold'), stockHaircut: Math.min(1, Math.max(0, n('stockHaircut'))) });
     await commit('修改進階規則'); render(); toast('已儲存');
   },
   pedit: el => { planEdit = el.dataset.key; render(); $('#pe-amt')?.focus(); },
   pecancel: () => { planEdit = null; render(); },
   pesave: async () => {
-    const k = planEdit, v = num($('#pe-amt').value), from = $('#pe-from').value, fm = E.firstEditableMonth(S);
+    const k = planEdit, v = num(fromWan($('#pe-amt').value)), from = $('#pe-from').value, fm = E.firstEditableMonth(S);
     if (!Number.isFinite(v) || v < 0) return toast('金額請只填數字');
     if (!from || from < fm) return toast(`最早只能從 ${ym(fm)} 開始`);
     S.plan = E.setPlanValue(S.plan, k, from, v); planEdit = null;
     await commit(`計畫：${ym(from)} 起 ${E.PLAN_KEYS[k].label} ${v}`); render(); toast('已更新計畫');
   },
   pundo: async el => { S.plan = E.removePlanChange(S.plan, el.dataset.key, el.dataset.from); await commit(`撤回計畫修改 ${el.dataset.key} ${el.dataset.from}`); render(); toast('已撤回'); },
-  ressave: async () => { const v = num(new FormData($('#resf')).get('reserve')); if (!Number.isFinite(v)) return toast('請只填數字'); S.settings.reserve = v; await commit('修改備用金'); render(); toast('已儲存'); },
+  ressave: async () => { const v = num(fromWan(new FormData($('#resf')).get('reserve'))); if (!Number.isFinite(v)) return toast('請只填數字'); S.settings.reserve = v; await commit('修改備用金'); render(); toast('已儲存'); },
   accsave: async () => { S.accounts = $('#accnames').value.split(/[,，、]/).map(x => x.trim()).filter(Boolean); await commit('修改帳戶清單'); D.acc = {}; settle(); toast('已儲存帳戶清單'); },
-  sideadd: async () => { const name = $('#sn').value.trim(), amount = num($('#sa').value) || 0; if (!name) return; S.sideItems.push({ id: uid('i'), name, kind: 'monthly', amount, active: true }); await commit('新增兼職 ' + name); render(); },
+  sideadd: async () => { const name = $('#sn').value.trim(), amount = num(fromWan($('#sa').value)) || 0; if (!name) return; S.sideItems.push({ id: uid('i'), name, kind: 'monthly', amount, active: true }); await commit('新增兼職 ' + name); render(); },
   sidetoggle: async el => { const i = S.sideItems.find(x => x.id === el.dataset.id); i.active = !i.active; await commit('切換兼職 ' + i.name); render(); },
   evadd: async () => { const t = today(); S.events.push({ id: uid('e'), name: '新款項', type: 'other', amount: 0, dateFrom: t, dateTo: t, status: 'planned' }); await commit('新增事件'); render(); },
   flowdel: el => { D.flows.splice(+el.dataset.i, 1); preview = null; settle(); }, // 草稿而已，直接拿掉
@@ -829,7 +833,7 @@ const acts = {
   evsave: async el => {
     const form = el.closest('form'), f = new FormData(form), ev = S.events.find(x => x.id === form.dataset.ev);
     const before = JSON.stringify(ev);
-    const total = Math.abs(num(f.get('amount')) || 0), amt = total * (f.get('dir') === 'in' ? 1 : -1);
+    const total = Math.abs(num(fromWan(f.get('amount'))) || 0), amt = total * (f.get('dir') === 'in' ? 1 : -1);
     // 金額有改：不能比已付少；狀態跟著變（剛好付完＝付清了）
     if (!(total > 0) || total !== Math.abs(ev.amount)) {
       const r = E.statusAfterAmount(S, ev, total), paid = Math.abs(E.eventPaid(S, ev));
@@ -850,8 +854,8 @@ let saveT;
 const onInput = e => {
   const k = e.target.dataset.k;
   if (!k || !D) return;
-  if (k.startsWith('fix.')) { setPath(D, k, e.target.value); const fe = $('#fix-echo'); if (fe) fe.innerHTML = fixEcho(); return; }
-  const v = e.target.type === 'radio' ? (e.target.checked ? e.target.value : getPath(D, k)) : e.target.value;
+  if (k.startsWith('fix.')) { setPath(D, k, e.target.hasAttribute('data-wan') ? fromWan(e.target.value) : e.target.value); const fe = $('#fix-echo'); if (fe) fe.innerHTML = fixEcho(); return; }
+  const v = e.target.type === 'radio' ? (e.target.checked ? e.target.value : getPath(D, k)) : e.target.hasAttribute('data-wan') ? fromWan(e.target.value) : e.target.value;
   setPath(D, k, v);
   const ec = document.querySelector(`[data-echo="${k}"]`);
   if (ec) ec.innerHTML = echo(k);
